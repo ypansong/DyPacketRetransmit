@@ -31,3 +31,5 @@
 *.opendb
 *.db
 .vs
+lost_packets_retransmit_mock/Debug
+lost_packets_retransmit_mock/lost_packets_retransmit_mock/Debug
