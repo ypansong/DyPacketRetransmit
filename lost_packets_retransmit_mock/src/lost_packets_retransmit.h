@@ -17,8 +17,9 @@ private:
         unsigned short seq;
         unsigned long timestamp;
     }PacketPair;
-    std::list<unsigned short> mLostSeqList;
     std::list<PacketPair> mArrivePackets;
+    std::list<unsigned short> mDisorderPackets;
+    
     char mContinuousFlag;
     char mFecFlag;
     unsigned short mLastSequence;
@@ -61,7 +62,7 @@ public:
 private:
     unsigned long CalculatePacketsArriveModel();
 
-    int PutSequenceIntoBuffer();
+    int PutSequenceIntoBuffer(unsigned short seq);
 
     int GetSequencesOutFromBuffer();
 
