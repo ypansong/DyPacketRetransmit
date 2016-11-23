@@ -1,6 +1,39 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iostream>
+
+#include "lost_packets_retransmit.h"
+
+#define TEST_NO_ERROR(METHOD) do{\
+  int ret = (METHOD);\
+  if(ret){\
+    std::cout<< "Exception in "<<#METHOD << ", line "<< __LINE__ <<std::endl;\
+    std::cout<< ", retturn value" << ret << std::endl;\
+  }\
+}while(0);
+
+#define TEST_RESULT(name, y) do{\
+    if(y){\
+      std::cout << #name << " fails: " << (y) << std::endl;\
+    } else {\
+      std::cout << #name << " Pass." << std::endl;\
+    }\
+}while(0);
+
+int BufferEqual(const int buffer_length, const unsigned short *buffer, const int *result_input)
+{
+  int i;
+  if (buffer_length != result_input[0]) {
+    return 1;
+  }
+  for (i = 0; i < buffer_length; i++) {
+    if (result_input[i + 1] != buffer[i]) {
+      return 1;
+    }
+  }
+  return 0;
+}
 
 using namespace std;
 struct Packet {
@@ -25,7 +58,8 @@ void main()
 		packet_start[i].continuous_on = kContinuousOn;
 	}
 
-	// lost 104;
+
+	//Test 1, lost 104;
 	const int kTestLen_1 = 10;
 	short test_seq_1[kTestLen_1] = { 100, 101, 102, 103, 105, 106, 107, 108, 109, 110 };
 	Packet test_sample_1[kStratLength + kTestLen_1];
@@ -36,8 +70,26 @@ void main()
 		test_sample_1[i].fec_on = kFecOn;
 		test_sample_1[i].continuous_on = kContinuousOn;
 	}
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_1) / sizeof(test_sample_1[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_1[i].sequence, test_sample_1[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      if (104 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else {
+        int result_temp[] = { 1 , 104};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+    }
+    TEST_RESULT(test_sample_1, test_result);
+  }
 
-	// lost 103, 104;
+	//Test 2 lost 103, 104;
 	const int kTestLen_2 = 10;
 	short test_seq_2[kTestLen_2] = { 100, 101, 102, 105, 106, 107, 108, 109, 110, 111 };
 	Packet test_sample_2[kStratLength + kTestLen_2];
@@ -49,7 +101,26 @@ void main()
 		test_sample_2[i].continuous_on = kContinuousOn;
 	}
 
-	// lost 101, 103, 104, 105;
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_2) / sizeof(test_sample_2[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_2[i].sequence, test_sample_2[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      if (103 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else {
+        int result_temp[] = { 2, 103, 104 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+    }
+    TEST_RESULT(test_sample_2, test_result);
+  }
+
+	// Test 3, lost 101, 103, 104, 105;
 	const int kTestLen_3 = 10;
 	short test_seq_3[kTestLen_3] = { 100, 102, 106, 107, 108, 109, 110, 111, 112, 113};
 	Packet test_sample_3[kStratLength + kTestLen_3];
@@ -61,7 +132,29 @@ void main()
 		test_sample_3[i].continuous_on = kContinuousOn;
 	}
 
-	// lost 103, 104, 105;
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_3) / sizeof(test_sample_3[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_3[i].sequence, test_sample_3[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      if (101 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if( 101 == i){
+        int result_temp[] = { 1, 101 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else {
+        int result_temp[] = { 4, 101 , 103, 104, 105};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+    }
+    TEST_RESULT(test_sample_3, test_result);
+  }
+
+	// Test 4, lost 103, 104, 105;
 	const int kTestLen_4 = 10;
 	short test_seq_4[kTestLen_4] = { 100, 101, 102, 106, 107, 108, 109, 110, 111, 112 };
 	Packet test_sample_4[kStratLength + kTestLen_4];
@@ -72,8 +165,26 @@ void main()
 		test_sample_4[i].fec_on = kFecOn;
 		test_sample_4[i].continuous_on = kContinuousOn;
 	}
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_4) / sizeof(test_sample_4[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_4[i].sequence, test_sample_4[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      if (103 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else {
+        int result_temp[] = { 3, 103, 104, 105 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+    }
+    TEST_RESULT(test_sample_4, test_result);
+  }
 
-	// lost 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129, 131, 133, 135, 137;
+	//Test 5. lost 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129, 131, 133, 135, 137;
 	const int kTestLen_5 = 20;
 	short test_seq_5[kTestLen_5] = { 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138 };
 	Packet test_sample_5[kStratLength + kTestLen_5];
@@ -85,7 +196,80 @@ void main()
 		test_sample_5[i].continuous_on = kContinuousOn;
 	}
 
-	// lost none;
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_5) / sizeof(test_sample_5[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_5[i].sequence, test_sample_5[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      if (101 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if(101 == i){
+        int result_temp[] = { 1, 101 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (102 == i) {
+        int result_temp[] = { 2, 101, 103 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (103 == i) {
+        int result_temp[] = { 3, 101, 103, 105};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (104 == i) {
+        int result_temp[] = { 4, 101, 103, 105, 107};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (105 == i) {
+        int result_temp[] = { 5, 101, 103, 105, 107, 109 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (106 == i) {
+        int result_temp[] = { 6, 101, 103, 105, 107, 109, 111 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (107 == i) {
+        int result_temp[] = { 7, 101, 103, 105, 107, 109, 111, 113};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (108 == i) {
+        int result_temp[] = { 8, 101, 103 ,105, 107, 109, 111, 113, 115 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (109 == i) {
+        int result_temp[] = { 9, 101, 103 ,105, 107, 109, 111, 113, 115, 117 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (110 == i) {
+        int result_temp[] = { 9, 103 ,105, 107, 109, 111, 113, 115, 117, 119};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (111 == i) {
+        int result_temp[] = { 9, 105, 107, 109, 111, 113, 115, 117, 119, 121};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (112 == i) {
+        int result_temp[] = { 9, 107, 109, 111, 113, 115, 117, 119, 121, 123 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (113 == i) {
+        int result_temp[] = { 9, 109, 111, 113, 115, 117, 119, 121, 123 , 125};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (114 == i) {
+        int result_temp[] = { 9, 111, 113, 115, 117, 119, 121, 123 , 125, 127 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (115 == i) {
+        int result_temp[] = { 9, 113, 115, 117, 119, 121, 123 , 125, 127, 129 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (116 == i) {
+        int result_temp[] = { 9, 115, 117, 119, 121, 123 , 125, 127, 129, 131 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (117 == i) {
+        int result_temp[] = { 9, 117, 119, 121, 123 , 125, 127, 129, 131, 133 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (118 == i) {
+        int result_temp[] = { 9, 119, 121, 123 , 125, 127, 129, 131, 133, 135 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else {
+        int result_temp[] = { 9, 121, 123 , 125, 127, 129, 131, 133, 135 , 137};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+    }
+    TEST_RESULT(test_sample_5, test_result);
+  }
+
+	//Test6, lost none;
 	const int kTestLen_6 = 10;
 	short test_seq_6[kTestLen_6] = { 100, 101, 102, 103, 104, 105, 106, 107, 108, 109 };
 	Packet test_sample_6[kStratLength + kTestLen_6];
@@ -96,8 +280,22 @@ void main()
 		test_sample_6[i].fec_on = kFecOn;
 		test_sample_6[i].continuous_on = kContinuousOn;
 	}
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_6) / sizeof(test_sample_6[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_6[i].sequence, test_sample_6[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      int result_temp[] = { 0 };
+      test_result += BufferEqual(out_length, out_put_seq, result_temp);
+    }
+    TEST_RESULT(test_sample_6, test_result);
+  }
 
-	// lost none;
+
+	//Test7, lost none;
 	const int kTestLen_7 = 20;
 	short test_seq_7[kTestLen_7] = { 100, 101, 101, 101, 102, 103, 103, 103, 104, 104, 105, 106, 107, 108, 108, 108, 109, 109, 109, 109 };
 	Packet test_sample_7[kStratLength + kTestLen_7];
@@ -109,7 +307,21 @@ void main()
 		test_sample_7[i].continuous_on = kContinuousOn;
 	}
 
-	// lost 102, 104, 106;
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_7) / sizeof(test_sample_7[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_7[i].sequence, test_sample_7[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      int result_temp[] = { 0 };
+      test_result += BufferEqual(out_length, out_put_seq, result_temp);
+    }
+    TEST_RESULT(test_sample_7, test_result);
+  }
+
+	//test 8, lost 102, 104, 106;
 	const int kTestLen_8 = 10;
 	short test_seq_8[kTestLen_8] = { 100, 101, 101, 103, 103, 105, 105, 107, 108, 109 };
 	Packet test_sample_8[kStratLength + kTestLen_8];
@@ -120,8 +332,33 @@ void main()
 		test_sample_8[i].fec_on = kFecOn;
 		test_sample_8[i].continuous_on = kContinuousOn;
 	}
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_8) / sizeof(test_sample_8[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_8[i].sequence, test_sample_8[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      if (103 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }else if( 105 > i){
+        int result_temp[] = { 1, 102};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (107 > i) {
+        int result_temp[] = { 2, 102, 104 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else {
+        int result_temp[] = { 3, 102, 104, 106 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+    }
+    TEST_RESULT(test_sample_8, test_result);
+  }
 
-	// lost 102;
+
+	//Test 9, lost 102;
 	const int kTestLen_9 = 10;
 	short test_seq_9[kTestLen_9] = { 100, 101, 103, 102, 104, 105, 106, 107, 108, 109 };
 	Packet test_sample_9[kStratLength + kTestLen_9];
@@ -132,8 +369,29 @@ void main()
 		test_sample_9[i].fec_on = kFecOn;
 		test_sample_9[i].continuous_on = kContinuousOn;
 	}
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_9) / sizeof(test_sample_9[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_9[i].sequence, test_sample_9[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      if (102 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (102 == i) {
+        int result_temp[] = { 1, 102 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+    }
+    TEST_RESULT(test_sample_9, test_result);
+  }
 
-	// lost 101, 103, 105;
+	//Test 10, lost 101, 103, 105;
 	const int kTestLen_10 = 10;
 	short test_seq_10[kTestLen_10] = { 100, 102, 101, 104, 103, 106, 105, 107, 108, 109 };
 	Packet test_sample_10[kStratLength + kTestLen_10];
@@ -144,10 +402,49 @@ void main()
 		test_sample_10[i].fec_on = kFecOn;
 		test_sample_10[i].continuous_on = kContinuousOn;
 	}
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_10) / sizeof(test_sample_10[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_10[i].sequence, test_sample_10[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      if (101 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      else if (101 == i) {
+        int result_temp[] = { 1, 101 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      else if (102 == i){
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      else if (103 == i) {
+        int result_temp[] = { 1, 103 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      else if (104 == i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      else if (105 == i) {
+        int result_temp[] = { 1, 105 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      else{
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+    }
+    TEST_RESULT(test_sample_10, test_result);
+  }
 
-    // lost none;
+    //Test 11, lost none;
     const int kTestLen_11 = 10;
-    short test_seq_11[kTestLen_11] = { 100, 101,  102, 103, 104, 105, 106, 107, 108, 109 };
+    short test_seq_11[kTestLen_11] = { 100, 101, 102, 103, 104, 105, 106, 107, 108, 109 };
     Packet test_sample_11[kStratLength + kTestLen_11];
     memcpy(test_sample_11, packet_start, sizeof(packet_start));
     for (i = kStratLength; i < kStratLength + kTestLen_11; i++){
@@ -163,9 +460,22 @@ void main()
       memmove(test_sample_11 + (remove_i - 1), test_sample_11 + remove_i,
         sizeof(test_sample_11)-sizeof(Packet)* remove_i);
     }
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_11) / sizeof(test_sample_11[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_11[i].sequence, test_sample_11[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      TEST_RESULT(test_sample_11, test_result);
+    }
 
 
-    // lost none;
+    //Test 12, lost none;
     const int kTestLen_12 = 10;
     //short test_seq_12[kTestLen_12] = { 100, 101, 102, 103, 104, 105, 106, 107, 108, 109 };
     Packet test_sample_12[kStratLength + kTestLen_12];
@@ -187,8 +497,21 @@ void main()
       test_sample_12[i].fec_on = kFecOn;
       test_sample_12[i].continuous_on = kContinuousOn;
     }
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_12) / sizeof(test_sample_12[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_12[i].sequence, test_sample_12[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      TEST_RESULT(test_sample_12, test_result);
+    }
 
-    // lost none;
+    //Test 13, lost none;
     const int kTestLen_13 = 20;
     Packet test_sample_13[kStratLength + kTestLen_13];
     for (i = 0; i < sizeof(test_sample_13)/ sizeof(test_sample_13[0]); i++){
@@ -214,8 +537,21 @@ void main()
       test_sample_13[i].fec_on = kFecOn;
       test_sample_13[i].continuous_on = kContinuousOn;
     }
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_13) / sizeof(test_sample_13[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_13[i].sequence, test_sample_13[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      TEST_RESULT(test_sample_13, test_result);
+    }
 
-    // lost 110;
+    //Test 14, lost 110;
     const int kTestLen_14 = 20;
     Packet test_sample_14[kStratLength + kTestLen_14];
     for (i = 0; i < sizeof(test_sample_14) / sizeof(test_sample_14[0]); i++){
@@ -224,7 +560,6 @@ void main()
       test_sample_14[i].fec_on = kFecOn;
       test_sample_14[i].continuous_on = kContinuousOn;
     }
-
     unsigned short remove_table_14[] = { 1, 2, 30, 31, 32, 40, 41, 107, 108 , 110};
     int remove_table_length_14 = sizeof(remove_table_14) / sizeof(unsigned short);
     for (i = 0; i < remove_table_length_14; i++) {
@@ -241,8 +576,29 @@ void main()
       test_sample_14[i].fec_on = kFecOn;
       test_sample_14[i].continuous_on = kContinuousOn;
     }
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_14) / sizeof(test_sample_14[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_14[i].sequence, test_sample_14[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        if (100 > i) {
+          int result_temp[] = { 0 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (i >= 100 && i <= 109) {
+          int result_temp[] = { 1, 110 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else {
+          int result_temp[] = { 0 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        }
+      }
+      TEST_RESULT(test_sample_14, test_result);
+    }
 
-    // lost 107, 108, 109, 110;
+    //Test 15, lost 107, 108, 109, 110;
     const int kTestLen_15 = 20;
     Packet test_sample_15[kStratLength + kTestLen_15];
     for (i = 0; i < sizeof(test_sample_15) / sizeof(test_sample_15[0]); i++){
@@ -268,6 +624,30 @@ void main()
       test_sample_15[i].fec_on = kFecOn;
       test_sample_15[i].continuous_on = kContinuousOn;
     }
+
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_15) / sizeof(test_sample_15[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_15[i].sequence, test_sample_15[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        if (100 > i) {
+          int result_temp[] = { 0 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (i >= 100 && i <= 109) {
+          int result_temp[] = { 1, 107, 108, 109, 110 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else {
+          int result_temp[] = { 0 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        }
+      }
+      TEST_RESULT(test_sample_15, test_result);
+    }
+
+
 
 	int tmp = 10;
 	

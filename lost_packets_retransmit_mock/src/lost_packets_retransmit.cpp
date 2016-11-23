@@ -138,7 +138,7 @@ int LostPacketsRetransmiter::PutSequenceIntoBuffer(unsigned short seq)
     temp_re.lives = kMaxRetransmitCount;
 
     iter = mRetransmitBuffer.find(temp_re);
-    if (mRetransmitBuffer.end() != iter) {
+    if (mRetransmitBuffer.end() == iter) {
         if (mRetransmitBuffer.size() > kMaxRetransmitBufferLength) {
             mRetransmitBuffer.erase(mRetransmitBuffer.begin());
         } else {
@@ -166,7 +166,7 @@ int LostPacketsRetransmiter::GetSequencesOutFromBuffer(int * requested_length, u
         *temp_lives = *temp_lives - 1;
         output_count++;
         requested_sequences[output_count - 1] = iter->seq;
-        if (1 <= (*temp_lives)) {
+        if (1 >= (*temp_lives)) {
             iter = mRetransmitBuffer.erase(iter);
             mDeadElement++;
         } else {
