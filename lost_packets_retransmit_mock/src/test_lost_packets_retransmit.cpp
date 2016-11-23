@@ -38,7 +38,7 @@ int BufferEqual(const int buffer_length, const unsigned short *buffer, const int
 using namespace std;
 struct Packet {
 	int arrival_time_in_ms;
-	short sequence;
+	unsigned short sequence;
 	char fec_on;
 	char continuous_on;
 };
@@ -297,7 +297,7 @@ void main()
 
 	//Test7, lost none;
 	const int kTestLen_7 = 20;
-	short test_seq_7[kTestLen_7] = { 100, 101, 101, 101, 102, 103, 103, 103, 104, 104, 105, 106, 107, 108, 108, 108, 109, 109, 109, 109 };
+	short test_seq_7[kTestLen_7] = { 100, 101, 101, 101, 102, 103, 103, 103, 104, 104, 105, 106, 107, 111, 108, 109, 110, 112, 113, 114 };
 	Packet test_sample_7[kStratLength + kTestLen_7];
 	memcpy(test_sample_7, packet_start, sizeof(packet_start));
 	for (i = kStratLength; i < kStratLength + kTestLen_7; i++){
@@ -315,8 +315,22 @@ void main()
     for (i = 0; i < sizeof(test_sample_7) / sizeof(test_sample_7[0]); i++) {
       TEST_NO_ERROR(lpr.DetectGap(test_sample_7[i].sequence, test_sample_7[i].arrival_time_in_ms));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = { 0 };
-      test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      if (113 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if(113 == i) {
+        int result_temp[] = { 3, 108, 109, 110 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (114 == i) {
+        int result_temp[] = { 2, 109, 110 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else if (115 == i) {
+        int result_temp[] = { 1, 110 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      } else {
+        int result_temp[] = {0};
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
     }
     TEST_RESULT(test_sample_7, test_result);
   }
@@ -607,7 +621,6 @@ void main()
       test_sample_15[i].fec_on = kFecOn;
       test_sample_15[i].continuous_on = kContinuousOn;
     }
-
     unsigned short remove_table_15[] = { 2, 30, 31, 32, 40, 41, 107, 108, 109, 110 };
     int remove_table_length_15 = sizeof(remove_table_15) / sizeof(unsigned short);
     for (i = 0; i < remove_table_length_15; i++) {
@@ -624,7 +637,6 @@ void main()
       test_sample_15[i].fec_on = kFecOn;
       test_sample_15[i].continuous_on = kContinuousOn;
     }
-
     {// Test.
       int test_result = 0;
       unsigned short out_put_seq[100] = { 0 };
@@ -637,7 +649,7 @@ void main()
           int result_temp[] = { 0 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
         } else if (i >= 100 && i <= 109) {
-          int result_temp[] = { 1, 107, 108, 109, 110 };
+          int result_temp[] = { 4, 107, 108, 109, 110 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
         } else {
           int result_temp[] = { 0 };
@@ -647,6 +659,271 @@ void main()
       TEST_RESULT(test_sample_15, test_result);
     }
 
+    //Test 16, lost 104-999, 1001-1199;
+    const int kTestLen_16 = 10;
+    short test_seq_16[kTestLen_16] = { 100, 101, 102, 103, 1000, 1200, 1201, 1202, 1203, 1204};
+    Packet test_sample_16[kStratLength + kTestLen_16];
+    memcpy(test_sample_16, packet_start, sizeof(packet_start));
+    for (i = kStratLength; i < kStratLength + kTestLen_16; i++) {
+      test_sample_16[i].arrival_time_in_ms = i;
+      test_sample_16[i].sequence = test_seq_16[i - kStratLength];
+      test_sample_16[i].fec_on = kFecOn;
+      test_sample_16[i].continuous_on = kContinuousOn;
+    }
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_16) / sizeof(test_sample_16[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_16[i].sequence, test_sample_16[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        if (104 > i) {
+          int result_temp[] = { 0 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if(104 == i){
+          int k;
+          int result_temp2[kMaxRetransmitBufferLength] = { 0 };
+          for (k = 0; k < kMaxRetransmitBufferLength; k++) {
+            result_temp2[k] = test_sample_16[i].sequence - kMaxRetransmitBufferLength + k;
+          }
+          int result_temp[kMaxRetransmitBufferLength + 1] = {0};
+          result_temp[0] = { kMaxRetransmitBufferLength };
+          memcpy(result_temp + 1, result_temp2, sizeof(result_temp2));
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else {
+          int k;
+          int result_temp2[kMaxRetransmitBufferLength] = { 0 };
+          for (k = 0; k < kMaxRetransmitBufferLength; k++) {
+            result_temp2[k] = test_sample_16[105].sequence - kMaxRetransmitBufferLength + k;
+          }
+          int result_temp[kMaxRetransmitBufferLength + 1] = { 0 };
+          result_temp[0] = { kMaxRetransmitBufferLength };
+          memcpy(result_temp + 1, result_temp2, sizeof(result_temp2));
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        }
+      }
+      TEST_RESULT(test_sample_16, test_result);
+    }
+
+
+    //Test 17, start at 65436-65535, 2-11;
+    const int kTestLen_17 = 110;
+    const int kResidue_17 = 10;
+    Packet test_sample_17[kTestLen_17];
+    for (i = 0; i < kTestLen_17 - kResidue_17; i++) {
+      test_sample_17[i].arrival_time_in_ms = i;
+      test_sample_17[i].sequence = 65535 - kTestLen_17 + i + 1 + kResidue_17;
+      test_sample_17[i].fec_on = kFecOn;
+      test_sample_17[i].continuous_on = kContinuousOn;
+    }
+    int index_17 = 2;
+    for (i = kTestLen_17 - kResidue_17; i < kTestLen_17; i++) {
+      test_sample_17[i].arrival_time_in_ms = i;
+      test_sample_17[i].sequence = index_17;
+      test_sample_17[i].fec_on = kFecOn;
+      test_sample_17[i].continuous_on = kContinuousOn;
+      index_17++;
+    }
+
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_17) / sizeof(test_sample_17[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_17[i].sequence, test_sample_17[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      TEST_RESULT(test_sample_17, test_result);
+    }
+
+    //Test 18, none, 65533, 2, 65534, 65535, 3, - 11;
+    const int kTestLen_18 = 110;
+    const int kResidue_18 = 10;
+    Packet test_sample_18[kTestLen_18];
+    for (i = 0; i < kTestLen_18 - kResidue_18; i++) {
+      test_sample_18[i].arrival_time_in_ms = i;
+      test_sample_18[i].sequence = 65535 - kTestLen_18 + i + 1 + kResidue_18;
+      test_sample_18[i].fec_on = kFecOn;
+      test_sample_18[i].continuous_on = kContinuousOn;
+    }
+    int index_18 = 2;
+    for (i = kTestLen_18 - kResidue_18; i < kTestLen_18; i++) {
+      test_sample_18[i].arrival_time_in_ms = i;
+      test_sample_18[i].sequence = index_18;
+      test_sample_18[i].fec_on = kFecOn;
+      test_sample_18[i].continuous_on = kContinuousOn;
+      index_18++;
+    }
+    int tmp_exchange_18 = 0;
+    tmp_exchange_18 = test_sample_18[98].sequence;
+    test_sample_18[98].sequence = test_sample_18[100].sequence;
+    test_sample_18[100].sequence = tmp_exchange_18;
+
+    tmp_exchange_18 = test_sample_18[99].sequence;
+    test_sample_18[99].sequence = test_sample_18[100].sequence;
+    test_sample_18[100].sequence = tmp_exchange_18;
+
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_18) / sizeof(test_sample_18[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_18[i].sequence, test_sample_18[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      TEST_RESULT(test_sample_18, test_result);
+    }
+
+    //Test 19, none, 65530 2 65534 3 4 65535 5 - 9;
+    const int kTestLen_19 = 120;
+    const int kResidue_19 = 10;
+    Packet test_sample_19[kTestLen_19];
+    for (i = 0; i < kTestLen_19 - kResidue_19; i++) {
+      test_sample_19[i].arrival_time_in_ms = i;
+      test_sample_19[i].sequence = 65530 - kTestLen_19 + i + 1 + kResidue_19;
+      test_sample_19[i].fec_on = kFecOn;
+      test_sample_19[i].continuous_on = kContinuousOn;
+    }
+
+    test_sample_19[110].arrival_time_in_ms = 110;
+    test_sample_19[110].sequence = 2;
+    test_sample_19[110].fec_on = kFecOn;
+    test_sample_19[110].continuous_on = kContinuousOn;
+
+    test_sample_19[111].arrival_time_in_ms = 111;
+    test_sample_19[111].sequence = 65534;
+    test_sample_19[111].fec_on = kFecOn;
+    test_sample_19[111].continuous_on = kContinuousOn;
+
+    test_sample_19[112].arrival_time_in_ms = 112;
+    test_sample_19[112].sequence = 3;
+    test_sample_19[112].fec_on = kFecOn;
+    test_sample_19[112].continuous_on = kContinuousOn;
+
+    test_sample_19[113].arrival_time_in_ms = 113;
+    test_sample_19[113].sequence = 4;
+    test_sample_19[113].fec_on = kFecOn;
+    test_sample_19[113].continuous_on = kContinuousOn;
+
+    test_sample_19[114].arrival_time_in_ms = 114;
+    test_sample_19[114].sequence = 65535;
+    test_sample_19[114].fec_on = kFecOn;
+    test_sample_19[114].continuous_on = kContinuousOn;
+
+    for (i = 115; i < kTestLen_19; i++) {
+      test_sample_19[i].arrival_time_in_ms = i;
+      test_sample_19[i].sequence = kTestLen_19 - 115 + i - 115;
+      test_sample_19[i].fec_on = kFecOn;
+      test_sample_19[i].continuous_on = kContinuousOn;
+    }
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_19) / sizeof(test_sample_19[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_19[i].sequence, test_sample_19[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      TEST_RESULT(test_sample_19, test_result);
+    }
+
+
+    //Test 20, none, 65530,65534, 2, 65531, 4, 5, 3, 65532, 6 - 9;
+    const int kTestLen_20 = 120;
+    const int kResidue_20 = 10;
+    Packet test_sample_20[kTestLen_20];
+    for (i = 0; i < kTestLen_20 - kResidue_20; i++) {
+      test_sample_20[i].arrival_time_in_ms = i;
+      test_sample_20[i].sequence = 65530 - kTestLen_20 + i + 1 + kResidue_20;
+      test_sample_20[i].fec_on = kFecOn;
+      test_sample_20[i].continuous_on = kContinuousOn;
+    }
+
+    test_sample_20[110].arrival_time_in_ms = 110;
+    test_sample_20[110].sequence = 65534;
+    test_sample_20[110].fec_on = kFecOn;
+    test_sample_20[110].continuous_on = kContinuousOn;
+
+    test_sample_20[111].arrival_time_in_ms = 111;
+    test_sample_20[111].sequence = 2;
+    test_sample_20[111].fec_on = kFecOn;
+    test_sample_20[111].continuous_on = kContinuousOn;
+
+    test_sample_20[112].arrival_time_in_ms = 112;
+    test_sample_20[112].sequence = 65531;
+    test_sample_20[112].fec_on = kFecOn;
+    test_sample_20[112].continuous_on = kContinuousOn;
+
+    test_sample_20[113].arrival_time_in_ms = 113;
+    test_sample_20[113].sequence = 4;
+    test_sample_20[113].fec_on = kFecOn;
+    test_sample_20[113].continuous_on = kContinuousOn;
+
+    test_sample_20[114].arrival_time_in_ms = 114;
+    test_sample_20[114].sequence = 5;
+    test_sample_20[114].fec_on = kFecOn;
+    test_sample_20[114].continuous_on = kContinuousOn;
+
+    test_sample_20[115].arrival_time_in_ms = 115;
+    test_sample_20[115].sequence = 3;
+    test_sample_20[115].fec_on = kFecOn;
+    test_sample_20[115].continuous_on = kContinuousOn;
+
+    test_sample_20[116].arrival_time_in_ms = 116;
+    test_sample_20[116].sequence = 65532;
+    test_sample_20[116].fec_on = kFecOn;
+    test_sample_20[116].continuous_on = kContinuousOn;
+
+    for (i = 117; i < kTestLen_20; i++) {
+      test_sample_20[i].arrival_time_in_ms = i;
+      test_sample_20[i].sequence = kTestLen_20 - 115 + i - 115;
+      test_sample_20[i].fec_on = kFecOn;
+      test_sample_20[i].continuous_on = kContinuousOn;
+    }
+    {// Test.
+      int test_result = 0;
+      unsigned short out_put_seq[100] = { 0 };
+      int out_length = 0;
+      LostPacketsRetransmiter lpr;
+      for (i = 0; i < sizeof(test_sample_20) / sizeof(test_sample_20[0]); i++) {
+        TEST_NO_ERROR(lpr.DetectGap(test_sample_20[i].sequence, test_sample_20[i].arrival_time_in_ms));
+        TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+        if (110 > i) {
+          int result_temp[] = { 0 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (110 == i || 111 == i) {
+          int result_temp[] = { 3, 65531, 65532, 65533 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (112 == i) {
+          int result_temp[] = { 2, 65532, 65533 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (113 == i || 114 == i) {
+          int result_temp[] = { 3, 3, 65532, 65533 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (115 == i) {
+          int result_temp[] = { 2, 65532, 65533 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (116 == i) {
+          int result_temp[] = { 1,  65533 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else{
+          int result_temp[] = { 2, 6, 65533 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        }
+
+      }
+      TEST_RESULT(test_sample_20, test_result);
+    }
 
 
 	int tmp = 10;
