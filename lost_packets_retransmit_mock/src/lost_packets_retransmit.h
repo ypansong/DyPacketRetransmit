@@ -58,22 +58,22 @@ private:
         unsigned long timestamp;
     }PacketPair;
     std::list<PacketPair> mArrivePackets;
-    std::list<unsigned short> mDisorderPackets;
     
     char mContinuousFlag;
     char mFecFlag;
     unsigned short mLastSequence;
     unsigned long mLastTimestamp;
+    unsigned long mStartTimestamp;
 
 public:
 
     LostPacketsRetransmiter();
 
     // now_sequence -- input.
-    int DetectGap(unsigned short now_sequence);
+    int DetectGap(unsigned short now_sequence, unsigned long now_time_stamp);
 
-    // now_time_stamp -- input.
-    int DetectTimeOut(int now_time_stamp);
+    // current timestamp -- input.
+    int DetectTimeOut(unsigned long now_time_stamp);
 
     // requested_length -- output.
     // requested_sequences -- output.
@@ -110,6 +110,8 @@ private:
 
     unsigned long GetTimestamp();
     
+    void printLog(const char* format, ...);
+
 };
 
 #endif // !LOST_PACKETS_RESTRANSMIT_H_
