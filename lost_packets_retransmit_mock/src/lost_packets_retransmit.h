@@ -2,15 +2,54 @@
 #define LOST_PACKETS_RESTRANSMIT_H_
 
 #include <list>
+#include <set>
 
 #ifdef _WIN32
 #include <Windows.h>
 #else
 #include "XUtil.h"
 #endif
+const unsigned char kMaxRetransmitCount = 10;
+const unsigned short kMaxRetransmitBufferLength = 50;
+struct RetransmitElement{
+  unsigned short seq;
+  unsigned char lives;
+public:
+  // overloaded operator <, >, ==
+  bool operator < (const RetransmitElement& d) const{
+    if ((seq - d.seq) < 0) {
+      return true;
+    }
+    return false;
+  }
+  bool operator > (const RetransmitElement& d) const{
+    if ((seq - d.seq) > 0) {
+      return true;
+    }
+    return false;
+  }
+  bool operator == (const RetransmitElement& d) const{
+    if (seq == d.seq) {
+      return true;
+    }
+    return false;
+  }
+  void operator = (const RetransmitElement& d) {
+    seq = d.seq;
+    lives = d.lives;
+  }
+};
+
+
+
 
 class LostPacketsRetransmiter {
+private:
+  std::set<RetransmitElement> mRetransmitBuffer;
+  int mExistedSequence;
+  int mDeadOrReceived;
 
+  
 private:
     typedef struct
     {
@@ -64,7 +103,7 @@ private:
 
     int PutSequenceIntoBuffer(unsigned short seq);
 
-    int GetSequencesOutFromBuffer();
+    int GetSequencesOutFromBuffer(int * requested_length, unsigned short * requested_sequences);
 
     bool ComparePacketsSeq(const PacketPair& first, const PacketPair& second);
 
