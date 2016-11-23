@@ -5,8 +5,9 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
     mContinuousFlag = -1;
     mFecFlag = -1;
     mLastSequence = -1; 
-	mExistedSequence = 0;
-	mDeadOrReceived = 0;
+  mExistedSequence = 0;
+  mDeadOrReceived = 0;
+  mDeadElement = 0;
 }
 
 int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence)
@@ -188,6 +189,7 @@ int LostPacketsRetransmiter::GetSequencesOutFromBuffer(int * requested_length, u
     requested_sequences[output_count - 1] = iter->seq;
     if (1 <= (*temp_lives)) {
       mRetransmitBuffer.erase(iter++);
+      mDeadElement++;
     } else {
       iter++;
     }

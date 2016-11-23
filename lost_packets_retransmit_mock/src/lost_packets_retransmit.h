@@ -48,6 +48,7 @@ private:
   std::set<RetransmitElement> mRetransmitBuffer;
   int mExistedSequence;
   int mDeadOrReceived;
+  int mDeadElement;
 
   
 private:
