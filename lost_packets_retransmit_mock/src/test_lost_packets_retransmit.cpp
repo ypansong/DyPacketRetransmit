@@ -471,8 +471,7 @@ void main()
     int remove_table_length_11 = sizeof(remove_table_11) / sizeof(unsigned short);
     for (i = 0; i < remove_table_length_11; i++) {
       int remove_i = remove_table_11[remove_table_length_11 - i - 1];
-      memmove(test_sample_11 + (remove_i - 1), test_sample_11 + remove_i,
-        sizeof(test_sample_11)-sizeof(Packet)* remove_i);
+      memmove(test_sample_11 + (remove_i - 1), test_sample_11 + remove_i, sizeof(test_sample_11) - sizeof(Packet)* remove_i);
     }
     {// Test.
       int test_result = 0;
@@ -598,10 +597,11 @@ void main()
       for (i = 0; i < sizeof(test_sample_14) / sizeof(test_sample_14[0]); i++) {
         TEST_NO_ERROR(lpr.DetectGap(test_sample_14[i].sequence, test_sample_14[i].arrival_time_in_ms));
         TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+
         if (100 > i) {
           int result_temp[] = { 0 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (i >= 100 && i <= 109) {
+        } else if (i >= 100 && i <= 108) {
           int result_temp[] = { 1, 110 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
         } else {
@@ -648,7 +648,7 @@ void main()
         if (100 > i) {
           int result_temp[] = { 0 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (i >= 100 && i <= 109) {
+        } else if (i >= 100 && i <= 108) {
           int result_temp[] = { 4, 107, 108, 109, 110 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
         } else {
@@ -886,7 +886,7 @@ void main()
 
     for (i = 117; i < kTestLen_20; i++) {
       test_sample_20[i].arrival_time_in_ms = i;
-      test_sample_20[i].sequence = kTestLen_20 - 115 + i - 115;
+      test_sample_20[i].sequence = kTestLen_20 - 115 + i - 1 - 115;
       test_sample_20[i].fec_on = kFecOn;
       test_sample_20[i].continuous_on = kContinuousOn;
     }
@@ -901,23 +901,17 @@ void main()
         if (110 > i) {
           int result_temp[] = { 0 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (110 == i || 111 == i) {
+        } else if (110 == i) {
           int result_temp[] = { 3, 65531, 65532, 65533 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (112 == i) {
-          int result_temp[] = { 2, 65532, 65533 };
+        } else if (i == 111 || i == 112) {
+            int result_temp[] = { 0 };
+            test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (113 == i || i == 114) {
+          int result_temp[] = { 1, 3};
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (113 == i || 114 == i) {
-          int result_temp[] = { 3, 3, 65532, 65533 };
-          test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (115 == i) {
-          int result_temp[] = { 2, 65532, 65533 };
-          test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (116 == i) {
-          int result_temp[] = { 1,  65533 };
-          test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else{
-          int result_temp[] = { 2, 6, 65533 };
+        } else if (i >= 115) {
+          int result_temp[] = { 0 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
         }
 
@@ -925,6 +919,7 @@ void main()
       TEST_RESULT(test_sample_20, test_result);
     }
 
+    system("pause");
 
   TestTimeOutFunction();
 	int tmp = 10;

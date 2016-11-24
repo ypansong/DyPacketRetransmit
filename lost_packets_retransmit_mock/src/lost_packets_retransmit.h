@@ -11,6 +11,8 @@
 #endif
 const unsigned char kMaxRetransmitCount = 10;
 const unsigned short kMaxRetransmitBufferLength = 50;
+const unsigned short kReverGap = 65535 / 2;
+
 struct RetransmitElement{
   unsigned short seq;
   unsigned char lives;
@@ -61,6 +63,7 @@ private:
     
     char mContinuousFlag;
     char mFecFlag;
+    unsigned long mRecvPacketCnt;
     unsigned short mLastSequence;
     unsigned long mLastTimestamp;
     unsigned long mStartTimestamp;
@@ -95,7 +98,7 @@ public:
         return mContinuousFlag;
     };
 
-    int ResetSet();
+    int ResetBuffer();
 
     int RemoveSequenceFromBuffer(unsigned short target_seq);
 
@@ -104,7 +107,7 @@ private:
 
     int PutSequenceIntoBuffer(unsigned short seq);
 
-    int GetSequencesOutFromBuffer(int * requested_length, unsigned short * requested_sequences);
+    int GetSequencesOutFromBuffer(unsigned short seq);
 
     bool ComparePacketsSeq(const PacketPair& first, const PacketPair& second);
 

@@ -4,8 +4,10 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
 {
     mContinuousFlag = -1;
     mFecFlag = -1;
-    mLastSequence = -1;
-    mStartTimestamp = -1;
+    mRecvPacketCnt = 0;
+    mLastSequence = 0;
+    mLastTimestamp = 0;
+    mStartTimestamp = 0;
     mExistedSequence = 0;
     mDeadOrReceived = 0;
     mDeadElement = 0;
@@ -13,20 +15,29 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
 
 int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned long now_time_stamp)
 {
-    bool isNeedInsert = true;
+    bool isNeedUpdate = true;
+    mRecvPacketCnt++;
 
-    if (mLastSequence == -1)
+    if (mLastSequence == 0)
     {
         mLastSequence = now_sequence;
     }
     else
     {
-        if ((now_sequence - mLastSequence) >= 2)
+        if ((now_sequence - mLastSequence) > kReverGap)
+        {
+            // jump to far, do nothing
+            isNeedUpdate = false;
+        }
+        else if ((now_sequence - mLastSequence) >= 2)
         {
             // lost packet(s)
             for (unsigned short i = mLastSequence + 1; i < now_sequence; i++)
             {
-                PutSequenceIntoBuffer(i);
+                if (mRecvPacketCnt > 100)
+                {
+                    PutSequenceIntoBuffer(i);
+                }
             }
         }
         else if ((now_sequence - mLastSequence) >= 1)
@@ -36,32 +47,40 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
         else if ((now_sequence - mLastSequence) == 0)
         {
             // repeat
-            isNeedInsert = false;
+            isNeedUpdate = false;
+        }
+        else if ((now_sequence - mLastSequence) <= (-kReverGap))
+        {
+            // turnover, reset the buffer
+            ResetBuffer();
         }
         else
         {
-            // disorder
-            isNeedInsert = false;
+            // normal, disorder
+            isNeedUpdate = false;
         }
     }
-
-    mLastSequence = now_sequence;
+    
     mLastTimestamp = now_time_stamp;
 
-    if (isNeedInsert)
+    if (isNeedUpdate)
     {
         PacketPair t_pair;
         t_pair.seq = now_sequence;
         t_pair.timestamp = now_time_stamp;
         mArrivePackets.push_back(t_pair);
+
+        mLastSequence = now_sequence;
     }
+
+    GetSequencesOutFromBuffer(now_sequence);
 
     return 0;
 }
 
 int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
 {
-    if (mStartTimestamp == -1)
+    if (mStartTimestamp == 0)
     {
         mStartTimestamp = now_time_stamp;
     }
@@ -79,13 +98,36 @@ int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
 
 int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsigned short * requested_sequences)
 {
-    // TODO(Chaos): is GetRetransmitSequences need?
-    return GetSequencesOutFromBuffer(requested_length, requested_sequences);
+    if (NULL == requested_sequences) {
+        return -1;
+    }
+    std::set<RetransmitElement>::iterator iter;
+    unsigned char * temp_lives;
+    int output_count = 0;
+
+    for (iter = mRetransmitBuffer.begin(); iter != mRetransmitBuffer.end(); ) {
+        temp_lives = &((unsigned char)iter->lives);
+        *temp_lives = *temp_lives - 1;
+        output_count++;
+        requested_sequences[output_count - 1] = iter->seq;
+        if (1 >= (*temp_lives)) {
+            iter = mRetransmitBuffer.erase(iter);
+            mDeadElement++;
+        }
+        else {
+            iter++;
+        }
+    }
+
+    *requested_length = output_count;
+    return 0;
 }
 
-int LostPacketsRetransmiter::ResetSet()
+int LostPacketsRetransmiter::ResetBuffer()
 {
-    return -1;
+    mRetransmitBuffer.clear();
+    mArrivePackets.clear();
+    return 0;
 }
 
 int LostPacketsRetransmiter::RemoveSequenceFromBuffer(unsigned short target_seq)
@@ -139,12 +181,13 @@ int LostPacketsRetransmiter::PutSequenceIntoBuffer(unsigned short seq)
 
     iter = mRetransmitBuffer.find(temp_re);
     if (mRetransmitBuffer.end() == iter) {
+        mRetransmitBuffer.insert(temp_re);
+
         if (mRetransmitBuffer.size() > kMaxRetransmitBufferLength) {
             mRetransmitBuffer.erase(mRetransmitBuffer.begin());
         } else {
             //TODO(Chaos): Warring for too many elements to transmit!
         }
-        mRetransmitBuffer.insert(temp_re);
     } else {
         mExistedSequence++;
     }
@@ -152,30 +195,21 @@ int LostPacketsRetransmiter::PutSequenceIntoBuffer(unsigned short seq)
     return 0;
 }
 
-int LostPacketsRetransmiter::GetSequencesOutFromBuffer(int * requested_length, unsigned short * requested_sequences)
+int LostPacketsRetransmiter::GetSequencesOutFromBuffer(unsigned short seq)
 {
-    if (NULL == requested_sequences) {
-        return -1;
-    }
+    RetransmitElement temp_re;
     std::set<RetransmitElement>::iterator iter;
-    unsigned char * temp_lives;
-    int output_count = 0;
 
-    for (iter = mRetransmitBuffer.begin(); iter != mRetransmitBuffer.end(); ) {
-        temp_lives = &((unsigned char)iter->lives);
-        *temp_lives = *temp_lives - 1;
-        output_count++;
-        requested_sequences[output_count - 1] = iter->seq;
-        if (1 >= (*temp_lives)) {
-            iter = mRetransmitBuffer.erase(iter);
-            mDeadElement++;
-        } else {
-            iter++;
-        }
+    temp_re.seq = seq;
+    temp_re.lives = kMaxRetransmitCount;
+
+    iter = mRetransmitBuffer.find(temp_re);
+    if (mRetransmitBuffer.end() != iter) {
+        mRetransmitBuffer.erase(iter);
+        // calculate what we erase
+        return 0;
     }
-
-    *requested_length = output_count;
-    return 0;
+    return 1;
 }
 
 bool LostPacketsRetransmiter::ComparePacketsSeq(const PacketPair & first, const PacketPair & second)
