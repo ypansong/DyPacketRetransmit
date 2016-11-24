@@ -1680,48 +1680,5 @@ int TestTimeOutFunction() {
     TEST_RESULT(time_test_seq_6, test_result);
   }
 
-
-
-
-  const int kStratLength = 100;
-  Packet packet_start[kStratLength];
-  for (i = 0; i < kStratLength; i++) {
-    packet_start[i].arrival_time_in_ms = i;
-    packet_start[i].sequence = i + 1;
-    packet_start[i].fec_on = kFecOn;
-    packet_start[i].continuous_on = kContinuousOn;
-  }
-
-
-  //Test 1, lost 104;
-  const int kTestLen_1 = 10;
-  short test_seq_1[kTestLen_1] = { 100, 101, 102, 103, 105, 106, 107, 108, 109, 110 };
-  Packet test_sample_1[kStratLength + kTestLen_1];
-  memcpy(test_sample_1, packet_start, sizeof(packet_start));
-  for (i = kStratLength; i < kStratLength + kTestLen_1; i++) {
-    test_sample_1[i].arrival_time_in_ms = i;
-    test_sample_1[i].sequence = test_seq_1[i - kStratLength];
-    test_sample_1[i].fec_on = kFecOn;
-    test_sample_1[i].continuous_on = kContinuousOn;
-  }
-  {// Test.
-    int test_result = 0;
-    unsigned short out_put_seq[100] = { 0 };
-    int out_length = 0;
-    LostPacketsRetransmiter lpr;
-    for (i = 0; i < sizeof(test_sample_1) / sizeof(test_sample_1[0]); i++) {
-      TEST_NO_ERROR(lpr.DetectGap(test_sample_1[i].sequence, test_sample_1[i].arrival_time_in_ms));
-      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      if (104 > i) {
-        int result_temp[] = { 0 };
-        test_result += BufferEqual(out_length, out_put_seq, result_temp);
-      }
-      else {
-        int result_temp[] = { 1 , 104 };
-        test_result += BufferEqual(out_length, out_put_seq, result_temp);
-      }
-    }
-    TEST_RESULT(test_sample_1, test_result);
-  }
   return 0;
 }
