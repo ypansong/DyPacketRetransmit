@@ -43,7 +43,7 @@ struct Packet {
 	char continuous_on;
 };
 typedef struct Packet Packet;
-
+int TestTimeOutFunction();
 void main()
 {
 	int i;
@@ -926,6 +926,181 @@ void main()
     }
 
 
+  TestTimeOutFunction();
 	int tmp = 10;
 	
+}
+
+
+int TestTimeOutFunction() {
+
+  int i = 0;
+
+  const char kFecOn = 0;
+  const char kContinuousOn = 1;
+  const int kStartTimeStamp = 70000;
+  const unsigned short kStartSequence = 100;
+  const int kStartPacketLength = 10000;
+  Packet kTimeTestPackets[kStartPacketLength];
+  for ( i = 0; i < kStartPacketLength; i++) {
+    kTimeTestPackets[i].fec_on = kFecOn;
+    kTimeTestPackets[i].continuous_on = kContinuousOn;
+    kTimeTestPackets[i].sequence = i + kStartSequence;
+    kTimeTestPackets[i].arrival_time_in_ms = kStartTimeStamp;
+  }
+  //uniform discrete distribution.
+  // Test 1
+  // 20 * ones(1, 100)
+  // mean = 20
+  // var = 0
+  const int kTimeStampsLength_1 = 100;
+  const int test_time_stamps_1[kTimeStampsLength_1] = { 20, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+    20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+    20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+    20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+    20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+    20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+    20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20 };
+  Packet time_test_seq_1[kTimeStampsLength_1 + 1];
+  //for (i = 0; i < kTimeStampsLength_1 + 1; i++) {
+  //  time_test_seq_1[i].fec_on = kFecOn;
+  //  time_test_seq_1[i].continuous_on = kContinuousOn;
+  //  time_test_seq_1[i].sequence = i + kStartSequence;
+  //  time_test_seq_1[i].arrival_time_in_ms = kStartSequence + 
+  //}
+
+  // Test 2
+  // round(10:0.1 : 30 - 0.1)
+  // var =  33.8283
+  // mean = 19.9000
+  const int kTimeStampsLength_2 = 100;
+  const int test_time_stamps_2[kTimeStampsLength_2] = { 10, 10, 10, 11, 11, 11, 11, 11, 12, 12,
+    12, 12, 12, 13, 13, 13, 13, 13, 14, 14, 14, 14, 14, 15, 15, 15, 15,
+    15, 16, 16, 16, 16, 16, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 19,
+    19, 19, 19, 19, 20, 20, 20, 20, 20, 21, 21, 21, 21, 21, 22, 22, 22,
+    22, 22, 23, 23, 23, 23, 23, 24, 24, 24, 24, 24, 25, 25, 25, 25, 25,
+    26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 29, 29,
+    29, 29, 29, 30, 30 };
+  
+  // Test 3
+  // randi([10, 30], 1, 200);
+  // mean = 19.755;
+  // var = 38.045;
+  const int kTimeStampsLength_3 = 200;
+  const int test_time_stamps_3[kTimeStampsLength_3] = { 19, 16, 14, 13, 28, 11, 30, 24, 10, 10, 27,
+    19, 27, 14, 26, 15, 30, 29, 21, 29, 23, 26, 21, 14, 29, 20, 30, 17, 14,
+    25, 16, 12, 28, 24, 29, 18, 27, 26, 17, 29, 16, 13, 19, 15, 10, 22, 23,
+    23, 24, 27, 10, 24, 21, 24, 28, 15, 11, 16, 26, 20, 19, 13, 15, 24, 27,
+    24, 22, 30, 19, 20, 15, 23, 18, 16, 22, 26, 30, 26, 22, 19, 13, 14, 24,
+    30, 23, 28, 14, 24, 16, 10, 27, 19, 11, 29, 18, 22, 15, 23, 17, 20, 18,
+    17, 15, 26, 15, 30, 29, 15, 14, 15, 15, 15, 18, 27, 22, 14, 26, 30, 13,
+    27, 15, 18, 16, 19, 16, 12, 24, 11, 14, 20, 15, 18, 22, 11, 28, 28, 11,
+    13, 10, 22, 24, 25, 14, 30, 20, 11, 13, 17, 28, 10, 17, 23, 27, 10, 26,
+    11, 16, 15, 29, 22, 20, 25, 12, 28, 21, 10, 13, 15, 10, 24, 10, 20, 20,
+    15, 22, 16, 29, 10, 21, 17, 17, 10, 24, 21, 26, 26, 15, 14, 17, 25, 12,
+    19, 10, 11, 24, 26, 29, 29, 23, 12 };
+
+  // Test 4
+  // round(20 + 5.*randn(1, 200));
+  // mean = 19.9600;
+  // var = 24.4406;
+  const int kTimeStampsLength_4 = 200;
+  const int test_time_stamps_4[kTimeStampsLength_4] = { 7, 21, 20, 20, 23, 29, 20, 14, 19, 16, 18, 22,
+    13, 18, 22, 22, 23, 19, 20, 20, 15, 13, 16, 21, 23, 11, 16, 11, 32, 28,
+    16, 26, 32, 23, 9, 14, 22, 24, 22, 22, 17, 12, 13, 27, 22, 25, 12, 20,
+    21, 14, 20, 28, 22, 22, 27, 13, 23, 20, 20, 19, 19, 14, 19, 12, 18, 11,
+    25, 26, 29, 21, 20, 24, 12, 17, 27, 17, 15, 25, 15, 27, 20, 25, 18, 17,
+    17, 13, 22, 18, 29, 24, 22, 24, 16, 15, 22, 24, 18, 23, 13, 21, 21, 21,
+    20, 20, 21, 15, 12, 21, 18, 23, 21, 25, 24, 21, 22, 31, 10, 23, 27, 13,
+    16, 17, 20, 24, 22, 22, 20, 11, 21, 15, 18, 25, 26, 12, 24, 11, 17, 16,
+    22, 19, 16, 19, 22, 23, 26, 22, 16, 19, 22, 12, 20, 24, 22, 26, 21, 20,
+    29, 26, 21, 20, 13, 20, 20, 27, 27, 18, 17, 21, 27, 19, 17, 16, 18, 20,
+    18, 20, 20, 21, 28, 28, 15, 24, 18, 9, 15, 24, 24, 23, 25, 22, 17, 27,
+    15, 17, 21, 27, 17, 19, 24, 8 };
+  
+  // Test 5
+  // round(20 + 2.*randn(1, 200));
+  // mean = 20.1000;
+  // var = 4.0402;
+  const int kTimeStampsLength_5 = 200;
+  const int test_time_stamps_5[kTimeStampsLength_5] = { 22, 21, 19, 23, 18, 23, 21, 19, 21, 18, 20, 23, 21,
+    20, 24, 21, 24, 20, 21, 16, 24, 20, 18, 20, 17, 24, 19, 21, 16, 19, 18, 19, 19, 21, 21, 23, 22, 23, 17,
+    22, 19, 21, 19, 22, 21, 18, 18, 22, 19, 22, 22, 19, 20, 22, 23, 18, 20, 19, 19, 20, 24, 20, 21, 19, 19,
+    19, 22, 21, 21, 19, 18, 16, 19, 22, 18, 22, 20, 15, 22, 20, 20, 21, 22, 17, 20, 15, 21, 19, 19, 19, 17,
+    22, 19, 22, 17, 20, 22, 19, 22, 21, 20, 20, 21, 21, 21, 22, 19, 21, 23, 21, 21, 24, 23, 19, 17, 19, 24,
+    19, 20, 21, 21, 17, 17, 20, 20, 20, 18, 18, 16, 18, 20, 22, 19, 18, 20, 19, 20, 22, 20, 22, 20, 18, 21,
+    22, 18, 21, 21, 25, 19, 18, 18, 20, 18, 23, 22, 21, 16, 18, 20, 23, 25, 21, 19, 20, 18, 22, 19, 21, 19,
+    20, 21, 21, 22, 20, 19, 18, 21, 17, 18, 19, 19, 20, 20, 20, 22, 19, 16, 25, 17, 20, 19, 22, 24, 18, 20,
+    22, 20, 19, 20, 21 };
+  
+
+  // Test 6
+  // [round(20 + 2.*randn(1, 200)), round(30 + 2.*randn(1, 200))];
+  // mean(r(1:200)) = 20.1750;
+  // var(r(1:200)) = 4.3059;
+  // mean(r(201:400)) = 30.0850
+  // var(r(201:400)) = 4.1686;
+  const int kTimeStampsLength_6 = 400;
+  const int test_time_stamps_6[kTimeStampsLength_6] = { 21, 18, 17, 19, 21, 20, 17, 19, 19, 22, 20, 20, 22, 22,
+    20, 23, 22, 23, 22, 24, 22, 18, 20, 22, 22, 20, 20, 17, 24, 19, 20, 23, 21, 17, 25, 22, 19, 18, 19, 20, 17,
+    22, 22, 19, 18, 22, 22, 19, 17, 21, 19, 19, 19, 21, 22, 21, 21, 24, 20, 18, 18, 21, 21, 19, 20, 21, 24, 22,
+    22, 18, 19, 17, 20, 18, 21, 21, 24, 22, 21, 19, 21, 20, 14, 22, 19, 24, 20, 21, 19, 18, 22, 19, 21, 18, 17,
+    24, 23, 22, 19, 19, 21, 21, 21, 18, 20, 19, 21, 19, 18, 18, 17, 19, 16, 18, 19, 19, 17, 20, 20, 19, 19, 18,
+    20, 23, 19, 20, 20, 18, 18, 21, 21, 21, 25, 16, 21, 23, 20, 24, 22, 21, 20, 21, 20, 19, 19, 21, 18, 21, 16,
+    21, 26, 22, 19, 21, 21, 21, 20, 22, 17, 21, 19, 18, 20, 24, 19, 19, 19, 23, 18, 26, 21, 15, 21, 21, 20, 20,
+    20, 21, 18, 24, 20, 19, 18, 22, 17, 21, 20, 22, 21, 19, 22, 20, 20, 18, 19, 23, 17, 19, 21, 23, 28, 32, 31,
+    32, 31, 28, 32, 30, 33, 32, 28, 32, 30, 28, 31, 29, 34, 30, 29, 29, 30, 28, 30, 29, 32, 28, 30, 31, 27, 27,
+    33, 29, 30, 31, 31, 31, 31, 32, 29, 31, 29, 32, 32, 29, 32, 26, 27, 29, 30, 30, 35, 32, 34, 32, 26, 35, 33,
+    35, 30, 32, 28, 33, 30, 27, 30, 27, 31, 31, 28, 29, 32, 32, 29, 31, 27, 30, 31, 31, 27, 29, 27, 31, 29, 30,
+    31, 28, 26, 32, 29, 34, 32, 34, 28, 32, 32, 34, 31, 29, 33, 31, 29, 32, 30, 26, 27, 30, 34, 31, 31, 30, 31,
+    28, 31, 33, 32, 31, 27, 31, 32, 31, 31, 31, 30, 31, 30, 31, 28, 32, 30, 27, 30, 31, 30, 33, 28, 30, 30, 29,
+    29, 29, 29, 32, 30, 28, 28, 29, 30, 31, 32, 30, 30, 28, 33, 31, 31, 27, 27, 29, 27, 28, 30, 29, 28, 29, 28,
+    31, 28, 29, 30, 29, 30, 28, 31, 27, 28, 31, 31, 30, 28, 24, 29, 29, 33, 25, 32, 31, 31, 30, 33, 31, 32, 29,
+    27, 32, 30, 33, 30, 29, 33, 27 };
+
+
+
+
+
+  const int kStratLength = 100;
+  Packet packet_start[kStratLength];
+  for (i = 0; i < kStratLength; i++) {
+    packet_start[i].arrival_time_in_ms = i;
+    packet_start[i].sequence = i + 1;
+    packet_start[i].fec_on = kFecOn;
+    packet_start[i].continuous_on = kContinuousOn;
+  }
+
+
+  //Test 1, lost 104;
+  const int kTestLen_1 = 10;
+  short test_seq_1[kTestLen_1] = { 100, 101, 102, 103, 105, 106, 107, 108, 109, 110 };
+  Packet test_sample_1[kStratLength + kTestLen_1];
+  memcpy(test_sample_1, packet_start, sizeof(packet_start));
+  for (i = kStratLength; i < kStratLength + kTestLen_1; i++) {
+    test_sample_1[i].arrival_time_in_ms = i;
+    test_sample_1[i].sequence = test_seq_1[i - kStratLength];
+    test_sample_1[i].fec_on = kFecOn;
+    test_sample_1[i].continuous_on = kContinuousOn;
+  }
+  {// Test.
+    int test_result = 0;
+    unsigned short out_put_seq[100] = { 0 };
+    int out_length = 0;
+    LostPacketsRetransmiter lpr;
+    for (i = 0; i < sizeof(test_sample_1) / sizeof(test_sample_1[0]); i++) {
+      TEST_NO_ERROR(lpr.DetectGap(test_sample_1[i].sequence, test_sample_1[i].arrival_time_in_ms));
+      TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+      if (104 > i) {
+        int result_temp[] = { 0 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+      else {
+        int result_temp[] = { 1 , 104 };
+        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+      }
+    }
+    TEST_RESULT(test_sample_1, test_result);
+  }
+  return 0;
 }
