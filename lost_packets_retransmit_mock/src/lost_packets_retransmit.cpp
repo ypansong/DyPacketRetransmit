@@ -80,6 +80,7 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
 
 int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
 {
+  return 0;
     if (mStartTimestamp == 0)
     {
         mStartTimestamp = now_time_stamp;
