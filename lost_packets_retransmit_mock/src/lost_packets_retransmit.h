@@ -54,20 +54,14 @@ private:
 
   
 private:
-    typedef struct
-    {
-        unsigned short seq;
-        unsigned long timestamp;
-    }PacketPair;
-    std::list<PacketPair> mArrivePackets;
-    
     char mContinuousFlag;
     char mFecFlag;
     unsigned long mRecvPacketCnt;
     unsigned short mLastSequence;
     unsigned long mLastTimestamp;
     unsigned long mStartTimestamp;
-
+    unsigned long mRecvIntervalCnt;
+    unsigned long mRecvOrderPackCnt;
 public:
 
     LostPacketsRetransmiter();
@@ -103,16 +97,14 @@ public:
     int RemoveSequenceFromBuffer(unsigned short target_seq);
 
 private:
-    unsigned long CalculatePacketsArriveModel();
+    double CalculatePacketsArriveModel();
 
     int PutSequenceIntoBuffer(unsigned short seq);
 
     int GetSequencesOutFromBuffer(unsigned short seq);
 
-    bool ComparePacketsSeq(const PacketPair& first, const PacketPair& second);
+    int PutIntervalIntoBuffer(unsigned short seq, unsigned long timestamp);
 
-    unsigned long GetTimestamp();
-    
     void printLog(const char* format, ...);
 
 };

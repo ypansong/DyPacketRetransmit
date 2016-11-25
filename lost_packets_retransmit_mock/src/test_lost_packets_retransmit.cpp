@@ -54,6 +54,7 @@ struct Packet {
 };
 typedef struct Packet Packet;
 int TestTimeOutFunction();
+
 void main()
 {
 	int i;
@@ -929,11 +930,9 @@ void main()
       TEST_RESULT(test_sample_20, test_result);
     }
 
-  //system("pause");
+    TestTimeOutFunction();
 
-  TestTimeOutFunction();
-	int tmp = 10;
-	
+    system("pause");
 }
 
 
@@ -1066,7 +1065,8 @@ int TestTimeOutFunction() {
       now_time = now_time_boundary + kArrivalTimeMean + 10* kArrivalTimeMean;
       TEST_NO_ERROR(lpr.DetectTimeOut(now_time));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = {10, 102, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210 };
+      // int result_temp[] = { 10, 102, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210 };
+      int result_temp[] = { 10, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210 };
       test_result += BufferEqual(out_length, out_put_seq, result_temp);
     }
 
@@ -1181,7 +1181,8 @@ int TestTimeOutFunction() {
       now_time = now_time_boundary + kArrivalTimeMean + 10 * kArrivalTimeMean;
       TEST_NO_ERROR(lpr.DetectTimeOut(now_time));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = { 10, 102, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210 };
+      //  int result_temp[] = { 10, 102, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210 };
+      int result_temp[] = { 10, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210 };
       test_result += BufferEqual(out_length, out_put_seq, result_temp);
     }
 
@@ -1501,7 +1502,9 @@ int TestTimeOutFunction() {
       now_time = now_time_boundary + 2 * kArrivalTimeMean;
       TEST_NO_ERROR(lpr.DetectTimeOut(now_time));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = { 1, 301 };
+      // now_time - start_time = 74060 - 74020 = 40 < (20.1 * 2)
+      // int result_temp[] = { 1, 301 };
+      int result_temp[] = { 0 };
       test_result += BufferEqual(out_length, out_put_seq, result_temp);
     }
     {
@@ -1522,7 +1525,9 @@ int TestTimeOutFunction() {
       now_time = now_time_boundary + 3 * kArrivalTimeMean;
       TEST_NO_ERROR(lpr.DetectTimeOut(now_time));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = { 2, 301, 302 };
+      // now_time - start_time = 74080 - 74020 = 60 < (20.1 * 3)
+      // int result_temp[] = { 2, 301, 302 };
+      int result_temp[] = { 1, 301 };
       test_result += BufferEqual(out_length, out_put_seq, result_temp);
     }
     {
@@ -1543,7 +1548,9 @@ int TestTimeOutFunction() {
       now_time = now_time_boundary + kArrivalTimeMean + 10 * kArrivalTimeMean;
       TEST_NO_ERROR(lpr.DetectTimeOut(now_time));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = { 10, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310 };
+      // now_time - start_time = 74240 - 74020 = 220 < (20.1 * 11)
+      // int result_temp[] = { 10, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310 };
+      int result_temp[] = { 9, 301, 302, 303, 304, 305, 306, 307, 308, 309 };
       test_result += BufferEqual(out_length, out_put_seq, result_temp);
     }
 
@@ -1624,7 +1631,9 @@ int TestTimeOutFunction() {
       now_time = now_time_boundary + 2 * kArrivalTimeMean - 1;
       TEST_NO_ERROR(lpr.DetectTimeOut(now_time));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = { 0 };
+      // total average is 25.13, (now_time - start_time) / avg = (80141 - 80052) / 25.13 = 3.54
+      // int result_temp[] = { 0 };
+      int result_temp[] = { 1, 501 };
       test_result += BufferEqual(out_length, out_put_seq, result_temp);
     }
     {
@@ -1645,7 +1654,9 @@ int TestTimeOutFunction() {
       now_time = now_time_boundary + 3 * kArrivalTimeMean - 1;
       TEST_NO_ERROR(lpr.DetectTimeOut(now_time));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = { 1,501 };
+      // int result_temp[] = { 1,501 };
+      // total average is 25.13, (now_time - start_time) / avg = (80141 - 80052) / 25.13 = 3.54
+      int result_temp[] = { 2,501,502 };
       test_result += BufferEqual(out_length, out_put_seq, result_temp);
     }
     {
@@ -1666,19 +1677,22 @@ int TestTimeOutFunction() {
       now_time = now_time_boundary + 4 * kArrivalTimeMean - 1;
       TEST_NO_ERROR(lpr.DetectTimeOut(now_time));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = { 2, 501, 502 };
+      // int result_temp[] = { 2, 501, 502 };
+      // total average is 25.13, (now_time - start_time) / avg = (80171 - 80052) / 25.13 = 4.73
+      int result_temp[] = { 3, 501, 502, 503 };
       test_result += BufferEqual(out_length, out_put_seq, result_temp);
     }
     {
       now_time = now_time_boundary + kArrivalTimeMean + 10 * kArrivalTimeMean;
       TEST_NO_ERROR(lpr.DetectTimeOut(now_time));
       TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-      int result_temp[] = { 10, 501, 502, 503, 504, 505, 506, 507, 508, 509, 510 };
+      // int result_temp[] = { 10, 501, 502, 503, 504, 505, 506, 507, 508, 509, 510 };
+      // total average is 25.13, (now_time - start_time) / avg = (80382 - 80052) / 25.13 = 13.13
+      int result_temp[] = { 12, 501, 502, 503, 504, 505, 506, 507, 508, 509, 510, 511, 512 };
       test_result += BufferEqual(out_length, out_put_seq, result_temp);
     }
 
     TEST_RESULT(time_test_seq_6, test_result);
   }
-
   return 0;
 }

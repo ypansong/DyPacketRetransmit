@@ -8,6 +8,8 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
     mLastSequence = 0;
     mLastTimestamp = 0;
     mStartTimestamp = 0;
+    mRecvIntervalCnt = 0;
+    mRecvOrderPackCnt = 0;
     mExistedSequence = 0;
     mDeadOrReceived = 0;
     mDeadElement = 0;
@@ -60,41 +62,41 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
             isNeedUpdate = false;
         }
     }
-    
-    mLastTimestamp = now_time_stamp;
 
     if (isNeedUpdate)
     {
-        PacketPair t_pair;
-        t_pair.seq = now_sequence;
-        t_pair.timestamp = now_time_stamp;
-        mArrivePackets.push_back(t_pair);
-
+        PutIntervalIntoBuffer(now_sequence, now_time_stamp);
         mLastSequence = now_sequence;
     }
 
     GetSequencesOutFromBuffer(now_sequence);
+
+    mLastTimestamp = now_time_stamp;
 
     return 0;
 }
 
 int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
 {
-  return 0;
     if (mStartTimestamp == 0)
     {
         mStartTimestamp = now_time_stamp;
     }
     if ((now_time_stamp - mStartTimestamp) >= 2000)
     {
-        unsigned long seq_interval = (now_time_stamp - mLastTimestamp) / CalculatePacketsArriveModel();
-        for (unsigned short i = (mLastSequence + 1); i <= (mLastSequence + seq_interval);i++)
+        double arrive_model = CalculatePacketsArriveModel();
+        if (arrive_model != 0)
         {
-            PutSequenceIntoBuffer(i);
+            double float_seq_interval = (now_time_stamp - mLastTimestamp) / arrive_model;
+            double seq_interval = floor(float_seq_interval);
+            for (unsigned short i = (mLastSequence + 1); i < (mLastSequence + seq_interval);i++)
+            {
+                PutSequenceIntoBuffer(i);
+            }
+            return 0;
         }
-        return 0;
     }
-    return 1;
+    return 0;
 }
 
 int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsigned short * requested_sequences)
@@ -126,8 +128,9 @@ int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsi
 
 int LostPacketsRetransmiter::ResetBuffer()
 {
+    mRecvIntervalCnt = 0;
+    mRecvOrderPackCnt = 0;
     mRetransmitBuffer.clear();
-    mArrivePackets.clear();
     return 0;
 }
 
@@ -145,31 +148,9 @@ int LostPacketsRetransmiter::RemoveSequenceFromBuffer(unsigned short target_seq)
     return 0;
 }
 
-unsigned long LostPacketsRetransmiter::CalculatePacketsArriveModel()
+double LostPacketsRetransmiter::CalculatePacketsArriveModel()
 {
-    unsigned short total_packets_num = 0;
-    unsigned long total_time = 0;
-    unsigned short first_seq = 0, second_seq = 0;
-    unsigned long first_timestamp = 0, second_timestamp = 0;
-    for (std::list<PacketPair>::iterator it = mArrivePackets.begin(); it != mArrivePackets.end();)
-    {
-        first_seq = it->seq;
-        first_timestamp = it->timestamp;
-
-        it++;
-        if (it != mArrivePackets.end())
-        {
-            second_seq = it->seq;
-            second_timestamp = it->timestamp;
-            if ((second_seq - first_seq) > 0)
-            {
-                total_packets_num = second_seq - first_seq;
-                total_time = second_timestamp - first_timestamp;
-            }
-        }
-        it++;
-    }
-    return (total_time / total_packets_num);
+    return (mRecvOrderPackCnt != 0) ? (mRecvIntervalCnt * 1.0 / mRecvOrderPackCnt) : 0;
 }
 
 int LostPacketsRetransmiter::PutSequenceIntoBuffer(unsigned short seq)
@@ -213,18 +194,14 @@ int LostPacketsRetransmiter::GetSequencesOutFromBuffer(unsigned short seq)
     return 1;
 }
 
-bool LostPacketsRetransmiter::ComparePacketsSeq(const PacketPair & first, const PacketPair & second)
+int LostPacketsRetransmiter::PutIntervalIntoBuffer(unsigned short seq, unsigned long timestamp)
 {
-    return first.seq < second.seq;
-}
-
-unsigned long LostPacketsRetransmiter::GetTimestamp()
-{
-#ifdef _WIN32
-    return GetTickCount();
-#else
-    return XGetTimestamp();
-#endif
+    if (mLastTimestamp != 0)
+    {
+        mRecvIntervalCnt += timestamp - mLastTimestamp;
+        mRecvOrderPackCnt += seq - mLastSequence;
+    }
+    return 0;
 }
 
 void LostPacketsRetransmiter::printLog(const char* format, ...)
