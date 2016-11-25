@@ -60,8 +60,9 @@ private:
     unsigned short mLastSequence;
     unsigned long mLastTimestamp;
     unsigned long mStartTimestamp;
-    unsigned long mRecvIntervalCnt;
-    unsigned long mRecvOrderPackCnt;
+    int mRecvOrderCnt;
+    float mTotalArriveModel;
+    float mAvgArriveModel;
 public:
 
     LostPacketsRetransmiter();
@@ -92,18 +93,16 @@ public:
         return mContinuousFlag;
     };
 
-    int ResetBuffer();
-
     int RemoveSequenceFromBuffer(unsigned short target_seq);
 
 private:
-    double CalculatePacketsArriveModel();
+    float CalculatePacketsArriveModel(unsigned long now_timestamp);
 
     int PutSequenceIntoBuffer(unsigned short seq);
 
     int GetSequencesOutFromBuffer(unsigned short seq);
 
-    int PutIntervalIntoBuffer(unsigned short seq, unsigned long timestamp);
+    int ResetBuffer();
 
     void printLog(const char* format, ...);
 
