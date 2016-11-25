@@ -33,3 +33,5 @@
 .vs
 lost_packets_retransmit_mock/Debug
 lost_packets_retransmit_mock/lost_packets_retransmit_mock/Debug
+lost_packets_retransmit_mock/Release
+lost_packets_retransmit_mock/lost_packets_retransmit_mock/Release
