@@ -55,16 +55,6 @@ public:
         *mLock = 1;
     };
 
-    explicit RetransmitLock(volatile char& lock)
-        :mLock(&lock)
-    {
-        while (*mLock)
-        {
-            Sleep(1);
-        }
-        *mLock = 1;
-    };
-
     ~RetransmitLock()
     {
         if (*mLock)

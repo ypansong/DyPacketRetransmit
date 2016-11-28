@@ -34,6 +34,8 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
     RetransmitLock retransmitLock(&mRetransmitLock);
 
     bool isNeedUpdate = true;
+
+    mbIsDisorder = false;
     mRecvPacketCnt++;
 
     if (mLastSequence == 0)
@@ -220,7 +222,6 @@ int LostPacketsRetransmiter::GetSequencesOutFromBuffer(unsigned short seq)
         {
             mDisorderNum++;
         }
-        mbIsDisorder = false;
         return 0;
     }
     return 1;
