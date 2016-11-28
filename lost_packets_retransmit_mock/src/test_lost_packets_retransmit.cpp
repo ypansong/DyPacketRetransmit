@@ -54,6 +54,7 @@ struct Packet {
 };
 typedef struct Packet Packet;
 int TestTimeOutFunction();
+int TestStress();
 
 void main()
 {
@@ -931,6 +932,7 @@ void main()
     }
 
     TestTimeOutFunction();
+    TestStress();
 
     system("pause");
 }
@@ -1695,4 +1697,31 @@ int TestTimeOutFunction() {
     TEST_RESULT(time_test_seq_6, test_result);
   }
   return 0;
+}
+
+int TestStress()
+{
+    int i = 0;
+    const int kArrayLen = 1;
+    Packet test_stress_sample[kArrayLen];
+    for (i = 0; i < kArrayLen; i++) {
+        test_stress_sample[i].arrival_time_in_ms = i * 10;
+        test_stress_sample[i].sequence = i;
+        test_stress_sample[i].fec_on = 0;
+        test_stress_sample[i].continuous_on = 0;
+    }
+    {// Test.
+        int test_result = 0;
+        unsigned short out_put_seq[100] = { 0 };
+        int out_length = 0;
+        LostPacketsRetransmiter lpr;
+        for (i = 0; i < sizeof(test_stress_sample) / sizeof(test_stress_sample[0]); i++) {
+            TEST_NO_ERROR(lpr.DetectGap(test_stress_sample[i].sequence, test_stress_sample[i].arrival_time_in_ms));
+            TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
+            int result_temp[] = { 0 };
+            test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        }
+        TEST_RESULT(test_stress_sample, test_result);
+    }
+    return 0;
 }

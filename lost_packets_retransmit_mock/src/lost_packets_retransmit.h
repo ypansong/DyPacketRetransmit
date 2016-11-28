@@ -13,47 +13,81 @@ const unsigned char kMaxRetransmitCount = 10;
 const unsigned short kMaxRetransmitBufferLength = 50;
 const unsigned short kReverGap = 65535 / 2;
 
-struct RetransmitElement{
-  unsigned short seq;
-  unsigned char lives;
+struct RetransmitElement {
+    unsigned short seq;
+    unsigned char lives;
 public:
-  // overloaded operator <, >, ==
-  bool operator < (const RetransmitElement& d) const{
-    if ((seq - d.seq) < 0) {
-      return true;
+    // overloaded operator <, >, ==
+    bool operator < (const RetransmitElement& d) const {
+        if ((seq - d.seq) < 0) {
+            return true;
+        }
+        return false;
     }
-    return false;
-  }
-  bool operator > (const RetransmitElement& d) const{
-    if ((seq - d.seq) > 0) {
-      return true;
+    bool operator > (const RetransmitElement& d) const {
+        if ((seq - d.seq) > 0) {
+            return true;
+        }
+        return false;
     }
-    return false;
-  }
-  bool operator == (const RetransmitElement& d) const{
-    if (seq == d.seq) {
-      return true;
+    bool operator == (const RetransmitElement& d) const {
+        if (seq == d.seq) {
+            return true;
+        }
+        return false;
     }
-    return false;
-  }
-  void operator = (const RetransmitElement& d) {
-    seq = d.seq;
-    lives = d.lives;
-  }
+    void operator = (const RetransmitElement& d) {
+        seq = d.seq;
+        lives = d.lives;
+    }
 };
 
+class RetransmitLock
+{
+public:
+    explicit RetransmitLock(volatile char* lock)
+        :mLock(lock)
+    {
+        while (*mLock)
+        {
+            Sleep(1);
+        }
+        *mLock = 1;
+    };
 
+    explicit RetransmitLock(volatile char& lock)
+        :mLock(&lock)
+    {
+        while (*mLock)
+        {
+            Sleep(1);
+        }
+        *mLock = 1;
+    };
 
+    ~RetransmitLock()
+    {
+        if (*mLock)
+        {
+            *mLock = 0;
+        }
+    };
+
+private:
+    volatile char* mLock;
+};
 
 class LostPacketsRetransmiter {
 private:
-  std::set<RetransmitElement> mRetransmitBuffer;
-  int mExistedSequence;
-  int mDeadOrReceived;
-  int mDeadElement;
+    std::set<RetransmitElement> mRetransmitBuffer;
+    int mRequestElementNum;
+    int mReceiveElementNum;
+    int mDisorderNum;
+    int mExistedSequence;
+    int mDeadElement;
 
-  
 private:
+    volatile char mRetransmitLock;
     char mContinuousFlag;
     char mFecFlag;
     unsigned long mRecvPacketCnt;
@@ -63,15 +97,20 @@ private:
     int mRecvOrderCnt;
     float mTotalArriveModel;
     float mAvgArriveModel;
+    bool mbIsDisorder;
 public:
 
     LostPacketsRetransmiter();
+    ~LostPacketsRetransmiter();
 
     // now_sequence -- input.
     int DetectGap(unsigned short now_sequence, unsigned long now_time_stamp);
 
     // current timestamp -- input.
     int DetectTimeOut(unsigned long now_time_stamp);
+
+    // remove seq from buffer while receive the retransmitted seq
+    int RemoveSequenceFromBuffer(unsigned short target_seq);
 
     // requested_length -- output.
     // requested_sequences -- output.
@@ -93,8 +132,6 @@ public:
         return mContinuousFlag;
     };
 
-    int RemoveSequenceFromBuffer(unsigned short target_seq);
-
 private:
     float CalculatePacketsArriveModel(unsigned long now_timestamp);
 
@@ -104,7 +141,7 @@ private:
 
     int ResetBuffer();
 
-    void printLog(const char* format, ...);
+    void PrintLog(const char* format, ...);
 
 };
 
