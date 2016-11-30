@@ -3,7 +3,10 @@
 LostPacketsRetransmiter::LostPacketsRetransmiter()
 {
     mRetransmitLock = 0;
+    mResendSeqLock = 0;
 
+    mbIsEnable = false;
+    
     mContinuousFlag = -1;
     mFecFlag = -1;
     mRecvPacketCnt = 0;
@@ -21,6 +24,7 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
     mDeadElement = 0;
     
     mbIsDisorder = false;
+    mRetransmitSeq = 1;
 }
 
 LostPacketsRetransmiter::~LostPacketsRetransmiter()
@@ -29,8 +33,18 @@ LostPacketsRetransmiter::~LostPacketsRetransmiter()
     mRetransmitBuffer.clear();
 }
 
+void LostPacketsRetransmiter::SetEnable(bool isEnable)
+{
+    mbIsEnable = isEnable;
+}
+
 int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned long now_time_stamp)
 {
+    if (!mbIsEnable)
+    {
+        return -1;;
+    }
+
     RetransmitLock retransmitLock(&mRetransmitLock);
 
     bool isNeedUpdate = true;
@@ -96,7 +110,17 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
 
 int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
 {
+    if (!mbIsEnable)
+    {
+        return -1;;
+    }
+
     RetransmitLock retransmitLock(&mRetransmitLock);
+
+    if (mLastTimestamp == 0)
+    {
+        mLastTimestamp = now_time_stamp;
+    }
 
     if (mStartTimestamp == 0)
     {
@@ -119,6 +143,12 @@ int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
 
 int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsigned short * requested_sequences)
 {
+    if (!mbIsEnable)
+    {
+        *requested_length = 0;
+        return -1;;
+    }
+
     RetransmitLock retransmitLock(&mRetransmitLock);
 
     if (NULL == requested_sequences) {
@@ -129,7 +159,7 @@ int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsi
     int output_count = 0;
 
     for (iter = mRetransmitBuffer.begin(); iter != mRetransmitBuffer.end(); ) {
-        temp_lives = &((unsigned char)iter->lives);
+        temp_lives = (unsigned char*)(&(iter->lives));
         *temp_lives = *temp_lives - 1;
         output_count++;
         requested_sequences[output_count - 1] = iter->seq;
@@ -147,6 +177,7 @@ int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsi
     return 0;
 }
 
+
 int LostPacketsRetransmiter::ResetBuffer()
 {
     mAvgArriveModel = 0;
@@ -156,6 +187,11 @@ int LostPacketsRetransmiter::ResetBuffer()
 
 int LostPacketsRetransmiter::RemoveSequenceFromBuffer(unsigned short target_seq)
 {
+    if (!mbIsEnable)
+    {
+        return -1;;
+    }
+
     RetransmitLock retransmitLock(&mRetransmitLock);
 
     mReceiveElementNum++;
@@ -227,8 +263,60 @@ int LostPacketsRetransmiter::GetSequencesOutFromBuffer(unsigned short seq)
     return 1;
 }
 
+unsigned short LostPacketsRetransmiter::GetProtocolSeq()
+{
+    return mRetransmitSeq++;
+}
+
+int LostPacketsRetransmiter::PutSendSeqIntoBuffer(unsigned short seq, unsigned char * data, int dataLen)
+{
+    RetransmitLock resendLock(&mResendSeqLock);
+
+    SendSeqElement temp_element;
+    temp_element.seq = seq;
+    memcpy(temp_element.data, data, dataLen);
+    temp_element.dataLen = dataLen;
+    
+    std::set<SendSeqElement>::iterator iter;
+    iter = mSendSeqBuffer.find(temp_element);
+
+    if (iter == mSendSeqBuffer.end())
+    {
+        mSendSeqBuffer.insert(temp_element);
+        if (mSendSeqBuffer.size() > kMaxSendSeqBufferLength)
+        {
+            mSendSeqBuffer.erase(mSendSeqBuffer.begin());
+        }
+        return 0; // put success
+    }
+
+    return -1; // already exist
+}
+
+int LostPacketsRetransmiter::GetSendSeqFromBuffer(unsigned short *seq, unsigned char *data, int *dataLen)
+{
+    RetransmitLock resendLock(&mResendSeqLock);
+
+    SendSeqElement temp_element;
+    temp_element.seq = *seq;
+
+    std::set<SendSeqElement>::iterator iter;
+    iter = mSendSeqBuffer.find(temp_element);
+    if (iter != mSendSeqBuffer.end())
+    {
+        *seq = iter->seq;
+        memcpy(data, iter->data, iter->dataLen);
+        *dataLen = iter->dataLen;
+
+        return 0; // get success
+    }
+
+    return -1; // not found
+}
+
 void LostPacketsRetransmiter::PrintLog(const char* format, ...)
 {
+    return;
     char t_buffer[2048] = { 0 };
     char t_string[2048] = { 0 };
 
@@ -243,7 +331,7 @@ void LostPacketsRetransmiter::PrintLog(const char* format, ...)
 #ifdef _WIN32
     printf("%s", t_string);
 #else
-    LOGD("%s", t_string);
+    // LOGD("%s", t_string);
 #endif // __WIN32
 
     va_end(arg_ptr);

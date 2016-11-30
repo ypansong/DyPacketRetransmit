@@ -1,17 +1,23 @@
 #ifndef LOST_PACKETS_RESTRANSMIT_H_
 #define LOST_PACKETS_RESTRANSMIT_H_
 
-#include <list>
 #include <set>
 
 #ifdef _WIN32
 #include <Windows.h>
 #else
-#include "XUtil.h"
+#include <unistd.h>
+#include <math.h>
+#include <stdio.h>
 #endif
+
+const unsigned char kRetransmitVersion = 0;
+
 const unsigned char kMaxRetransmitCount = 10;
 const unsigned short kMaxRetransmitBufferLength = 50;
 const unsigned short kReverGap = 65535 / 2;
+
+const unsigned short kMaxSendSeqBufferLength = 50;
 
 struct RetransmitElement {
     unsigned short seq;
@@ -42,6 +48,36 @@ public:
     }
 };
 
+struct SendSeqElement {
+    unsigned short seq;
+    unsigned char data[512];
+    int dataLen;
+public:
+    // overloaded operator <, >, ==
+    bool operator < (const SendSeqElement& d) const {
+        if ((seq - d.seq) < 0) {
+            return true;
+        }
+        return false;
+    }
+    bool operator > (const SendSeqElement& d) const {
+        if ((seq - d.seq) > 0) {
+            return true;
+        }
+        return false;
+    }
+    bool operator == (const SendSeqElement& d) const {
+        if (seq == d.seq) {
+            return true;
+        }
+        return false;
+    }
+    void operator = (const SendSeqElement& d) {
+        seq = d.seq;
+    }
+};
+
+
 class RetransmitLock
 {
 public:
@@ -50,7 +86,12 @@ public:
     {
         while (*mLock)
         {
+#ifdef _WIN32
             Sleep(1);
+#else
+            sleep(1);
+#endif // __WIN32
+            
         }
         *mLock = 1;
     };
@@ -70,6 +111,7 @@ private:
 class LostPacketsRetransmiter {
 private:
     std::set<RetransmitElement> mRetransmitBuffer;
+    std::set<SendSeqElement> mSendSeqBuffer;
     int mRequestElementNum;
     int mReceiveElementNum;
     int mDisorderNum;
@@ -78,6 +120,8 @@ private:
 
 private:
     volatile char mRetransmitLock;
+    volatile char mResendSeqLock;
+    bool mbIsEnable;
     char mContinuousFlag;
     char mFecFlag;
     unsigned long mRecvPacketCnt;
@@ -88,10 +132,13 @@ private:
     float mTotalArriveModel;
     float mAvgArriveModel;
     bool mbIsDisorder;
+    unsigned short mRetransmitSeq;
 public:
 
     LostPacketsRetransmiter();
     ~LostPacketsRetransmiter();
+
+    void SetEnable(bool isEnable);
 
     // now_sequence -- input.
     int DetectGap(unsigned short now_sequence, unsigned long now_time_stamp);
@@ -105,6 +152,12 @@ public:
     // requested_length -- output.
     // requested_sequences -- output.
     int GetRetransmitSequences(int * requested_length, unsigned short * requested_sequences);
+
+    // put seq in send seq buffer
+    int PutSendSeqIntoBuffer(unsigned short seq, unsigned char *data, int dataLen);
+
+    // get seq out of send seq buffer
+    int GetSendSeqFromBuffer(unsigned short *seq, unsigned char *data, int *dataLen);
 
     void SetFecOn(int fec) {
         mFecFlag = fec == 1 ? 1 : 0;
@@ -121,6 +174,8 @@ public:
     int GetContinuousOn() {
         return mContinuousFlag;
     };
+
+    unsigned short GetProtocolSeq();
 
 private:
     float CalculatePacketsArriveModel(unsigned long now_timestamp);
