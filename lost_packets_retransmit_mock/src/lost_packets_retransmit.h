@@ -50,7 +50,7 @@ public:
 
 struct SendSeqElement {
     unsigned short seq;
-    unsigned char data[512];
+    unsigned char data[256];
     int dataLen;
 public:
     // overloaded operator <, >, ==
@@ -138,6 +138,7 @@ public:
     LostPacketsRetransmiter();
     ~LostPacketsRetransmiter();
 
+    // enanle packet retransmitter or not
     void SetEnable(bool isEnable);
 
     // now_sequence -- input.
@@ -157,7 +158,13 @@ public:
     int PutSendSeqIntoBuffer(unsigned short seq, unsigned char *data, int dataLen);
 
     // get seq out of send seq buffer
-    int GetSendSeqFromBuffer(unsigned short *seq, unsigned char *data, int *dataLen);
+    int GetReSendSeqFromBuffer(unsigned short seq, unsigned char *data, int *dataLen);
+
+    unsigned short GetProtocolSeq();
+
+    unsigned char GetVersion() {
+        return kRetransmitVersion;
+    };
 
     void SetFecOn(int fec) {
         mFecFlag = fec == 1 ? 1 : 0;
@@ -174,8 +181,7 @@ public:
     int GetContinuousOn() {
         return mContinuousFlag;
     };
-
-    unsigned short GetProtocolSeq();
+    
 
 private:
     float CalculatePacketsArriveModel(unsigned long now_timestamp);

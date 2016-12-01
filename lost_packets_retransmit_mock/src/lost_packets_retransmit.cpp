@@ -42,7 +42,7 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
 {
     if (!mbIsEnable)
     {
-        return -1;;
+        return -1;
     }
 
     RetransmitLock retransmitLock(&mRetransmitLock);
@@ -112,7 +112,7 @@ int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
 {
     if (!mbIsEnable)
     {
-        return -1;;
+        return -1;
     }
 
     RetransmitLock retransmitLock(&mRetransmitLock);
@@ -146,7 +146,7 @@ int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsi
     if (!mbIsEnable)
     {
         *requested_length = 0;
-        return -1;;
+        return -1;
     }
 
     RetransmitLock retransmitLock(&mRetransmitLock);
@@ -189,7 +189,7 @@ int LostPacketsRetransmiter::RemoveSequenceFromBuffer(unsigned short target_seq)
 {
     if (!mbIsEnable)
     {
-        return -1;;
+        return -1;
     }
 
     RetransmitLock retransmitLock(&mRetransmitLock);
@@ -270,6 +270,11 @@ unsigned short LostPacketsRetransmiter::GetProtocolSeq()
 
 int LostPacketsRetransmiter::PutSendSeqIntoBuffer(unsigned short seq, unsigned char * data, int dataLen)
 {
+    if (!mbIsEnable)
+    {
+        return - 1;
+    }
+
     RetransmitLock resendLock(&mResendSeqLock);
 
     SendSeqElement temp_element;
@@ -290,28 +295,33 @@ int LostPacketsRetransmiter::PutSendSeqIntoBuffer(unsigned short seq, unsigned c
         return 0; // put success
     }
 
-    return -1; // already exist
+    return -2; // already exist
 }
 
-int LostPacketsRetransmiter::GetSendSeqFromBuffer(unsigned short *seq, unsigned char *data, int *dataLen)
+int LostPacketsRetransmiter::GetReSendSeqFromBuffer(unsigned short seq, unsigned char *data, int *dataLen)
 {
+    if (!mbIsEnable)
+    {
+        return -1;
+    }
+
     RetransmitLock resendLock(&mResendSeqLock);
 
     SendSeqElement temp_element;
-    temp_element.seq = *seq;
+    temp_element.seq = seq;
 
     std::set<SendSeqElement>::iterator iter;
     iter = mSendSeqBuffer.find(temp_element);
     if (iter != mSendSeqBuffer.end())
     {
-        *seq = iter->seq;
         memcpy(data, iter->data, iter->dataLen);
         *dataLen = iter->dataLen;
 
         return 0; // get success
     }
 
-    return -1; // not found
+    *dataLen = 0;
+    return -2; // not found
 }
 
 void LostPacketsRetransmiter::PrintLog(const char* format, ...)
