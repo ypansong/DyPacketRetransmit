@@ -152,7 +152,7 @@ int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsi
     RetransmitLock retransmitLock(&mRetransmitLock);
 
     if (NULL == requested_sequences) {
-        return -1;
+        return -2;
     }
     std::set<RetransmitElement>::iterator iter;
     unsigned char * temp_lives;
@@ -268,7 +268,7 @@ unsigned short LostPacketsRetransmiter::GetProtocolSeq()
     return mRetransmitSeq++;
 }
 
-int LostPacketsRetransmiter::PutSendSeqIntoBuffer(unsigned short seq, unsigned char * data, int dataLen)
+int LostPacketsRetransmiter::PutSendSeqIntoBuffer(unsigned short seq, char * data, int dataLen)
 {
     if (!mbIsEnable)
     {
@@ -276,29 +276,30 @@ int LostPacketsRetransmiter::PutSendSeqIntoBuffer(unsigned short seq, unsigned c
     }
 
     RetransmitLock resendLock(&mResendSeqLock);
-
-    SendSeqElement temp_element;
-    temp_element.seq = seq;
-    memcpy(temp_element.data, data, dataLen);
-    temp_element.dataLen = dataLen;
-    
-    std::set<SendSeqElement>::iterator iter;
-    iter = mSendSeqBuffer.find(temp_element);
-
-    if (iter == mSendSeqBuffer.end())
+    if (dataLen <= 512)
     {
-        mSendSeqBuffer.insert(temp_element);
-        if (mSendSeqBuffer.size() > kMaxSendSeqBufferLength)
+        SendSeqElement temp_element;
+        temp_element.seq = seq;
+        memcpy(temp_element.data, data, dataLen);
+        temp_element.dataLen = dataLen;
+
+        std::set<SendSeqElement>::iterator iter;
+        iter = mSendSeqBuffer.find(temp_element);
+
+        if (iter == mSendSeqBuffer.end())
         {
-            mSendSeqBuffer.erase(mSendSeqBuffer.begin());
+            mSendSeqBuffer.insert(temp_element);
+            if (mSendSeqBuffer.size() > kMaxSendSeqBufferLength)
+            {
+                mSendSeqBuffer.erase(mSendSeqBuffer.begin());
+            }
         }
-        return 0; // put success
     }
 
-    return -2; // already exist
+    return 0; // put success
 }
 
-int LostPacketsRetransmiter::GetReSendSeqFromBuffer(unsigned short seq, unsigned char *data, int *dataLen)
+int LostPacketsRetransmiter::GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen)
 {
     if (!mbIsEnable)
     {
