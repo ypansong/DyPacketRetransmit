@@ -53,7 +53,7 @@ public:
 
 struct SendSeqElement {
     unsigned short seq;
-    unsigned char data[256];
+    char data[512];
     int dataLen;
 public:
     // overloaded operator <, >, ==
@@ -160,10 +160,10 @@ public:
     int GetRetransmitSequences(int * requested_length, unsigned short * requested_sequences);
 
     // put seq in send seq buffer
-    int PutSendSeqIntoBuffer(unsigned short seq, unsigned char *data, int dataLen);
+    int PutSendSeqIntoBuffer(unsigned short seq, char *data, int dataLen);
 
     // get seq out of send seq buffer
-    int GetReSendSeqFromBuffer(unsigned short seq, unsigned char *data, int *dataLen);
+    int GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen);
 
     // put seq in send seq buffer
     int PutSendSeqIntoBuffer2(unsigned short seq, unsigned char *data, int dataLen);
