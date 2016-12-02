@@ -25,6 +25,9 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
     
     mbIsDisorder = false;
     mRetransmitSeq = 1;
+
+    mUpStreamResendBufferIndex = 0;
+    memset(mUpStreamResendBuffer, 0, sizeof(mUpStreamResendBuffer));
 }
 
 LostPacketsRetransmiter::~LostPacketsRetransmiter()
@@ -345,4 +348,41 @@ void LostPacketsRetransmiter::PrintLog(const char* format, ...)
 #endif // __WIN32
 
     va_end(arg_ptr);
+}
+
+int LostPacketsRetransmiter::PutSendSeqIntoBuffer2(unsigned short seq, unsigned char *data, int dataLen)
+{
+  if (dataLen > kMaxaPacketLength) {
+    return -1;
+  }
+  memcpy(mUpStreamResendBuffer[mUpStreamResendBufferIndex], &seq, sizeof(seq));
+  memcpy(&mUpStreamResendBuffer[mUpStreamResendBufferIndex][sizeof(seq)], &dataLen, sizeof(dataLen));
+  memcpy(&mUpStreamResendBuffer[mUpStreamResendBufferIndex][sizeof(seq) + sizeof(dataLen)], data, dataLen);
+  mUpStreamResendBufferIndex++;
+  if (mUpStreamResendBufferIndex >= kMaxUpStreamResendElemtCount){
+    mUpStreamResendBufferIndex = 0;
+  }
+
+  return 0;
+}
+
+
+int LostPacketsRetransmiter::GetReSendSeqFromBuffer2(unsigned short seq, unsigned char *data, int *dataLen)
+{// TODO(Chaos): Can be optimized;
+  int i;
+  unsigned short sequence_find = 0;
+  if ((NULL == data) || (NULL == dataLen)) {
+    return -1;
+  }
+  *dataLen = 0;
+  for (i = 0; i < kMaxUpStreamResendElemtCount; i++) {
+    memcpy(&sequence_find, mUpStreamResendBuffer[i], sizeof(sequence_find));
+    if (seq == sequence_find) {
+      memcpy(dataLen, &mUpStreamResendBuffer[i][sizeof(seq)], sizeof(*dataLen));
+      memcpy(data, &mUpStreamResendBuffer[i][sizeof(seq) + sizeof(*dataLen)], *dataLen);
+      break;
+    }
+  }
+  
+  return 0;
 }

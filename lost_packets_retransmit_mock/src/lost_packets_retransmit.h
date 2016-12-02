@@ -19,6 +19,9 @@ const unsigned short kReverGap = 65535 / 2;
 
 const unsigned short kMaxSendSeqBufferLength = 50;
 
+const unsigned short kMaxUpStreamResendElemtCount = 50;
+const unsigned short kMaxaPacketLength = 512;
+
 struct RetransmitElement {
     unsigned short seq;
     unsigned char lives;
@@ -133,6 +136,8 @@ private:
     float mAvgArriveModel;
     bool mbIsDisorder;
     unsigned short mRetransmitSeq;
+    unsigned char mUpStreamResendBuffer[kMaxUpStreamResendElemtCount][kMaxaPacketLength + sizeof(short) + sizeof (int)];
+    unsigned short mUpStreamResendBufferIndex;
 public:
 
     LostPacketsRetransmiter();
@@ -159,6 +164,12 @@ public:
 
     // get seq out of send seq buffer
     int GetReSendSeqFromBuffer(unsigned short seq, unsigned char *data, int *dataLen);
+
+    // put seq in send seq buffer
+    int PutSendSeqIntoBuffer2(unsigned short seq, unsigned char *data, int dataLen);
+
+    // get seq out of send seq buffer
+    int GetReSendSeqFromBuffer2(unsigned short seq, unsigned char *data, int *dataLen);
 
     unsigned short GetProtocolSeq();
 
