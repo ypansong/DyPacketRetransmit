@@ -138,6 +138,7 @@ private:
     unsigned short mRetransmitSeq;
     unsigned char mUpStreamResendBuffer[kMaxUpStreamResendElemtCount][kMaxaPacketLength + sizeof(short) + sizeof (int)];
     unsigned short mUpStreamResendBufferIndex;
+    unsigned short mUpStreamNewSequence;
 public:
 
     LostPacketsRetransmiter();
