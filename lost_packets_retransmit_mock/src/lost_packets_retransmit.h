@@ -139,6 +139,8 @@ private:
     unsigned char mUpStreamResendBuffer[kMaxUpStreamResendElemtCount][kMaxaPacketLength + sizeof(short) + sizeof (int)];
     unsigned short mUpStreamResendBufferIndex;
     unsigned short mUpStreamNewSequence;
+    bool mbGetResendSeqFlag;
+
 public:
 
     LostPacketsRetransmiter();
@@ -167,10 +169,10 @@ public:
     int GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen);
 
     // put seq in send seq buffer
-    int PutSendSeqIntoBuffer2(unsigned short seq, unsigned char *data, int dataLen);
+    int PutSendSeqIntoBuffer2(unsigned short seq, char *data, int dataLen);
 
     // get seq out of send seq buffer
-    int GetReSendSeqFromBuffer2(unsigned short seq, unsigned char *data, int *dataLen);
+    int GetReSendSeqFromBuffer2(unsigned short seq, char *data, int *dataLen);
 
     unsigned short GetProtocolSeq();
 

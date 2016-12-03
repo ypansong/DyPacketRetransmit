@@ -55,6 +55,7 @@ struct Packet {
 typedef struct Packet Packet;
 int TestTimeOutFunction();
 int TestStress();
+int TestResendBuffer();
 
 void main()
 {
@@ -933,7 +934,7 @@ void main()
 
     TestTimeOutFunction();
     TestStress();
-
+    TestResendBuffer();
     system("pause");
 }
 
@@ -1723,5 +1724,57 @@ int TestStress()
         }
         TEST_RESULT(test_stress_sample, test_result);
     }
+    return 0;
+}
+
+int TestResendBuffer()
+{
+    unsigned short test_put_resend_seq = 2;
+    char test_put_resend_data[512] = { 1 };
+    int test_put_resend_dataLen = sizeof(test_put_resend_data);
+
+    LostPacketsRetransmiter lpr;
+
+    for (unsigned short i = 0; i < 49; i++)
+    {
+        lpr.PutSendSeqIntoBuffer2(test_put_resend_seq, test_put_resend_data, test_put_resend_dataLen);
+        test_put_resend_seq++;
+    }
+
+    unsigned short test_get_resend_seq = 30;
+    char test_get_resend_data[512] = { 0 };
+    int test_get_resend_dataLen = 0;
+
+    int ret = 0;
+    ret = lpr.GetReSendSeqFromBuffer2(test_get_resend_seq, test_get_resend_data, &test_get_resend_dataLen);
+    cout << "test resend buffer " << ((ret != -4) ? "error " : "success ") << ret << endl;
+
+    for (unsigned short i = 49; i <= 65533; i++)
+    {
+        test_put_resend_seq += i;
+        lpr.PutSendSeqIntoBuffer2(test_put_resend_seq, test_put_resend_data, test_put_resend_dataLen);
+    }
+
+    for (unsigned short i = 2; i < 20; i++)
+    {
+        lpr.PutSendSeqIntoBuffer2(i, test_put_resend_data, test_put_resend_dataLen);
+    }
+
+    test_get_resend_dataLen = 0;
+    ret = lpr.GetReSendSeqFromBuffer2(65530, test_get_resend_data, &test_get_resend_dataLen);
+    cout << "test resend buffer " << ((ret != 0 && test_get_resend_dataLen !=512) ? "error " : "success ") << ret << endl;
+
+    test_get_resend_dataLen = 0;
+    ret = lpr.GetReSendSeqFromBuffer2(65535, test_get_resend_data, &test_get_resend_dataLen);
+    cout << "test resend buffer " << ((ret != 0 && test_get_resend_dataLen != 512) ? "error " : "success ") << ret << endl;
+
+    test_get_resend_dataLen = 0;
+    ret = lpr.GetReSendSeqFromBuffer2(2, test_get_resend_data, &test_get_resend_dataLen);
+    cout << "test resend buffer " << ((ret != 0 && test_get_resend_dataLen != 512) ? "error " : "success ") << ret << endl;
+
+    test_get_resend_dataLen = 0;
+    ret = lpr.GetReSendSeqFromBuffer2(19, test_get_resend_data, &test_get_resend_dataLen);
+    cout << "test resend buffer " << ((ret != 0 && test_get_resend_dataLen != 512) ? "error " : "success ") << ret << endl;
+
     return 0;
 }

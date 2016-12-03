@@ -5,7 +5,7 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
     mRetransmitLock = 0;
     mResendSeqLock = 0;
 
-    mbIsEnable = false;
+    mbIsEnable = true; // TODO £º reset false here
     
     mContinuousFlag = -1;
     mFecFlag = -1;
@@ -26,8 +26,11 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
     mbIsDisorder = false;
     mRetransmitSeq = 1;
 
+    mUpStreamNewSequence = 0;
     mUpStreamResendBufferIndex = 0;
     memset(mUpStreamResendBuffer, 0, sizeof(mUpStreamResendBuffer));
+    
+    mbGetResendSeqFlag = 0;
 }
 
 LostPacketsRetransmiter::~LostPacketsRetransmiter()
@@ -129,13 +132,19 @@ int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
     {
         mStartTimestamp = now_time_stamp;
     }
+
+    if ((now_time_stamp - mLastTimestamp) >= 500)
+    {
+        //return -2; // just detect [200ms, 500ms]
+    }
+
     if ((now_time_stamp - mStartTimestamp) >= 2000)
     {
         if (mAvgArriveModel > 0)
         {
             float float_seq_interval = (now_time_stamp - mLastTimestamp) / mAvgArriveModel;
             float seq_interval = floor(float_seq_interval);
-            for (unsigned short i = (mLastSequence + 1); i < (mLastSequence + seq_interval);i++)
+            for (unsigned short i = (mLastSequence + 1); i < (mLastSequence + seq_interval);i++) // TODO £º reset 10 here
             {
                 PutSequenceIntoBuffer(i);
             }
@@ -351,80 +360,86 @@ void LostPacketsRetransmiter::PrintLog(const char* format, ...)
     va_end(arg_ptr);
 }
 
-int LostPacketsRetransmiter::PutSendSeqIntoBuffer2(unsigned short seq, unsigned char *data, int dataLen)
+int LostPacketsRetransmiter::PutSendSeqIntoBuffer2(unsigned short seq, char *data, int dataLen)
 {
-  if (dataLen > kMaxaPacketLength) {
-    return -1;
-  }
+    if (!mbIsEnable)
+    {
+        return -1;
+    }
 
-  RetransmitLock resendLock(&mResendSeqLock);
-  mUpStreamNewSequence = seq;
-  memcpy(mUpStreamResendBuffer[mUpStreamResendBufferIndex], &seq, sizeof(seq));
-  memcpy(&mUpStreamResendBuffer[mUpStreamResendBufferIndex][sizeof(seq)], &dataLen, sizeof(dataLen));
-  memcpy(&mUpStreamResendBuffer[mUpStreamResendBufferIndex][sizeof(seq) + sizeof(dataLen)], data, dataLen);
-  mUpStreamResendBufferIndex++;
-  if (mUpStreamResendBufferIndex >= kMaxUpStreamResendElemtCount){
-    mUpStreamResendBufferIndex = 0;
-  }
+    if (dataLen > kMaxaPacketLength) {
+        return -2;
+    }
 
-  return 0;
+    RetransmitLock resendLock(&mResendSeqLock);
+
+    mUpStreamNewSequence = seq;
+    memcpy(mUpStreamResendBuffer[mUpStreamResendBufferIndex], &seq, sizeof(seq));
+    memcpy(&mUpStreamResendBuffer[mUpStreamResendBufferIndex][sizeof(seq)], &dataLen, sizeof(dataLen));
+    memcpy(&mUpStreamResendBuffer[mUpStreamResendBufferIndex][sizeof(seq) + sizeof(dataLen)], data, dataLen);
+    mUpStreamResendBufferIndex++;
+    if (mUpStreamResendBufferIndex >= kMaxUpStreamResendElemtCount) {
+        mUpStreamResendBufferIndex = 0;
+        mbGetResendSeqFlag = 1;
+    }
+
+    return 0;
 }
 
 
-int LostPacketsRetransmiter::GetReSendSeqFromBuffer2(unsigned short seq, unsigned char *data, int *dataLen)
-{// TODO(Chaos): Can be optimized;
-  int i;
-  unsigned short sequence_find = 0;
-  if ((NULL == data) || (NULL == dataLen)) {
-    return -1;
-  }
-  *dataLen = 0;
-  const unsigned short kNonSequenceLow = 0;
-  const unsigned short kNonSequenceHigh = 2;
-  //const int kMaxUnsignedShortValue = 65536;
+int LostPacketsRetransmiter::GetReSendSeqFromBuffer2(unsigned short seq, char *data, int *dataLen)
+{
+    if (!mbIsEnable)
+    {
+        return -1;
+    }
 
-  if (kNonSequenceLow <= seq && kNonSequenceHigh > seq) {
+    unsigned short sequence_find = 0;
+    if ((NULL == data) || (NULL == dataLen)) {
+        return -2;
+    }
+    *dataLen = 0;
+    const unsigned short kNonSequenceLow = 0;
+    const unsigned short kNonSequenceHigh = 2;
+    //const int kMaxUnsignedShortValue = 65536;
+
+    if (kNonSequenceLow <= seq && kNonSequenceHigh > seq) {
+        return -3;
+    }
+
+    RetransmitLock resendLock(&mResendSeqLock);
+    if (!mbGetResendSeqFlag)
+    {
+        return -4;
+    }
+
+    int low_bound = mUpStreamNewSequence - kMaxUpStreamResendElemtCount + 1;
+    if (low_bound < kNonSequenceHigh) {
+        low_bound = low_bound + 65536 - (kNonSequenceHigh - kNonSequenceLow);
+        if (seq < low_bound && seq >mUpStreamNewSequence) {
+            return 0;
+        }
+        int taget = seq - low_bound;
+        if (taget < 0) {
+            taget += 65536 - (kNonSequenceHigh - kNonSequenceLow);
+        }
+        taget += mUpStreamResendBufferIndex;
+        if (taget >= kMaxUpStreamResendElemtCount) {
+            taget -= kMaxUpStreamResendElemtCount;
+        }
+        memcpy(dataLen, &mUpStreamResendBuffer[taget][sizeof(seq)], sizeof(*dataLen));
+        memcpy(data, &mUpStreamResendBuffer[taget][sizeof(seq) + sizeof(*dataLen)], *dataLen);
+
+    } else {
+        if (low_bound <= seq && mUpStreamNewSequence >= seq) {
+            int taget = seq - low_bound + mUpStreamResendBufferIndex;
+            if (taget >= kMaxUpStreamResendElemtCount) {
+                taget -= kMaxUpStreamResendElemtCount;
+            }
+            memcpy(dataLen, &mUpStreamResendBuffer[taget][sizeof(seq)], sizeof(*dataLen));
+            memcpy(data, &mUpStreamResendBuffer[taget][sizeof(seq) + sizeof(*dataLen)], *dataLen);
+        }
+    }
+
     return 0;
-  }
-
-  RetransmitLock resendLock(&mResendSeqLock);
-  int low_bound = mUpStreamNewSequence - kMaxUpStreamResendElemtCount + 1;
-  if (low_bound < kNonSequenceHigh) {
-    low_bound = low_bound + 65536 - (kNonSequenceHigh - kNonSequenceLow);
-    if (seq < low_bound && seq >mUpStreamNewSequence) {
-      return 0;
-    }
-    int taget = seq - low_bound;
-    if (taget < 0) {
-      taget += 65536 - (kNonSequenceHigh - kNonSequenceLow);
-    }
-    taget += mUpStreamResendBufferIndex;
-    if (taget >= kMaxUpStreamResendElemtCount) {
-      taget -= kMaxUpStreamResendElemtCount;
-    }
-    memcpy(dataLen, &mUpStreamResendBuffer[taget][sizeof(seq)], sizeof(*dataLen));
-    memcpy(data, &mUpStreamResendBuffer[taget][sizeof(seq) + sizeof(*dataLen)], *dataLen);
-
-  } else {
-    if ( low_bound <= seq && mUpStreamNewSequence >= seq ) {
-      int taget = seq - low_bound + mUpStreamResendBufferIndex;
-      if (taget >= kMaxUpStreamResendElemtCount) {
-        taget -= kMaxUpStreamResendElemtCount;
-      }
-      memcpy(dataLen, &mUpStreamResendBuffer[taget][sizeof(seq)], sizeof(*dataLen));
-      memcpy(data, &mUpStreamResendBuffer[taget][sizeof(seq) + sizeof(*dataLen)], *dataLen);
-    }
-  }
-
-
-  //for (i = 0; i < kMaxUpStreamResendElemtCount; i++) {
-  //  memcpy(&sequence_find, mUpStreamResendBuffer[i], sizeof(sequence_find));
-  //  if (seq == sequence_find) {
-  //    memcpy(dataLen, &mUpStreamResendBuffer[i][sizeof(seq)], sizeof(*dataLen));
-  //    memcpy(data, &mUpStreamResendBuffer[i][sizeof(seq) + sizeof(*dataLen)], *dataLen);
-  //    break;
-  //  }
-  //}
-  
-  return 0;
 }
