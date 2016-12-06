@@ -129,6 +129,7 @@ private:
     char mContinuousFlag;
     char mFecFlag;
     unsigned long mRecvPacketCnt;
+    int mRecvValidPackCnt;
     unsigned short mLastSequence;
     unsigned long mLastTimestamp;
     unsigned long mStartTimestamp;

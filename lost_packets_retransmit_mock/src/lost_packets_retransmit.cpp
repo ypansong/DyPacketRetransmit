@@ -10,6 +10,7 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
     mContinuousFlag = -1;
     mFecFlag = -1;
     mRecvPacketCnt = 0;
+    mRecvValidPackCnt = 0;
     mLastSequence = 0;
     mLastTimestamp = 0;
     mStartTimestamp = 0;
@@ -90,6 +91,7 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
         else if (((now_sequence - mLastSequence) == 1) && !is_recv_retransmit)
         {
             CalculatePacketsArriveModel(now_time_stamp);
+            mRecvValidPackCnt++;
         }
         else if ((now_sequence - mLastSequence) == 0)
         {
@@ -145,7 +147,7 @@ int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
         mStartTimestamp = now_time_stamp;
     }
 
-    if ((now_time_stamp - mStartTimestamp) >= 2000)
+    if (mRecvValidPackCnt >= 100)
     {
         unsigned long elapse_time = now_time_stamp - mLastTimestamp;
         if (elapse_time >= 200 && elapse_time <= 500) // Test case will be fault because this
