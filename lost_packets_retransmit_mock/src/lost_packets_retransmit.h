@@ -116,10 +116,11 @@ private:
     std::set<RetransmitElement> mRetransmitBuffer;
     std::set<SendSeqElement> mSendSeqBuffer;
     int mRequestElementNum;
-    int mReceiveElementNum;
+    int mRecvCantRetransmitNum;
     int mDisorderNum;
     int mExistedSequence;
     int mDeadElement;
+    int mRecvRetransmitNum;
 
 private:
     volatile char mRetransmitLock;
@@ -150,7 +151,7 @@ public:
     void SetEnable(bool isEnable);
 
     // now_sequence -- input.
-    int DetectGap(unsigned short now_sequence, unsigned long now_time_stamp);
+    int DetectGap(unsigned short now_sequence, unsigned long now_time_stamp, bool is_recv_retransmit = false);
 
     // current timestamp -- input.
     int DetectTimeOut(unsigned long now_time_stamp);
@@ -167,12 +168,6 @@ public:
 
     // get seq out of send seq buffer
     int GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen);
-
-    // put seq in send seq buffer
-    int PutSendSeqIntoBuffer2(unsigned short seq, char *data, int dataLen);
-
-    // get seq out of send seq buffer
-    int GetReSendSeqFromBuffer2(unsigned short seq, char *data, int *dataLen);
 
     unsigned short GetProtocolSeq();
 
