@@ -3,7 +3,6 @@
 LostPacketsRetransmiter::LostPacketsRetransmiter()
 {
     mRetransmitLock = 0;
-    mResendSeqLock = 0;
 
     mbIsEnable = true; // TODO £º reset false here
     
@@ -27,12 +26,6 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
     
     mbIsDisorder = false;
     mRetransmitSeq = 1;
-
-    mUpStreamNewSequence = 0;
-    mUpStreamResendBufferIndex = 0;
-    memset(mUpStreamResendBuffer, 0, sizeof(mUpStreamResendBuffer));
-    
-    mbGetResendSeqFlag = 0;
 }
 
 LostPacketsRetransmiter::~LostPacketsRetransmiter()
@@ -107,7 +100,7 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
         {
             // disorder
             isNeedUpdate = false;
-            mbIsDisorder = false;
+            mbIsDisorder = true;
         }
     }
 
@@ -202,7 +195,6 @@ int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsi
     return 0;
 }
 
-
 int LostPacketsRetransmiter::ResetBuffer()
 {
     mAvgArriveModel = 0;
@@ -293,6 +285,35 @@ unsigned short LostPacketsRetransmiter::GetProtocolSeq()
     return mRetransmitSeq++;
 }
 
+int LostPacketsRetransmiter::SetCurrentPlaySeq(unsigned short seq)
+{
+    if (!mbIsEnable)
+    {
+        return -1;
+    }
+
+    RetransmitLock retransmitLock(&mRetransmitLock);
+
+    RetransmitElement temp_re;
+    std::set<RetransmitElement>::iterator iter;
+
+    temp_re.seq = seq;
+    temp_re.lives = kMaxRetransmitCount;
+    if (!mRetransmitBuffer.empty())
+    {
+        iter = mRetransmitBuffer.begin();
+        if (seq >= iter->seq)
+        {
+            // erase all the elemen that less than seq
+            for (iter = mRetransmitBuffer.begin(); iter != mRetransmitBuffer.lower_bound(temp_re);)
+            {
+                iter = mRetransmitBuffer.erase(iter);
+            }
+        }
+    }
+    return 0;
+}
+
 void LostPacketsRetransmiter::PrintLog(const char* format, ...)
 {
     return;
@@ -316,7 +337,27 @@ void LostPacketsRetransmiter::PrintLog(const char* format, ...)
     va_end(arg_ptr);
 }
 
-int LostPacketsRetransmiter::PutSendSeqIntoBuffer(unsigned short seq, char *data, int dataLen)
+UpstreamPacketsRetransmitter::UpstreamPacketsRetransmitter()
+{
+    mResendSeqLock = 0;
+
+    mUpStreamNewSequence = 0;
+    mUpStreamResendBufferIndex = 0;
+    memset(mUpStreamResendBuffer, 0, sizeof(mUpStreamResendBuffer));
+
+    mbGetResendSeqFlag = 0;
+}
+
+UpstreamPacketsRetransmitter::~UpstreamPacketsRetransmitter()
+{
+}
+
+void UpstreamPacketsRetransmitter::SetEnable(bool isEnable)
+{
+    mbIsEnable = isEnable;
+}
+
+int UpstreamPacketsRetransmitter::PutSendSeqIntoBuffer(unsigned short seq, char *data, int dataLen)
 {
     if (!mbIsEnable)
     {
@@ -342,7 +383,7 @@ int LostPacketsRetransmiter::PutSendSeqIntoBuffer(unsigned short seq, char *data
     return 0;
 }
 
-int LostPacketsRetransmiter::GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen)
+int UpstreamPacketsRetransmitter::GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen)
 {
     if (!mbIsEnable)
     {
@@ -385,7 +426,8 @@ int LostPacketsRetransmiter::GetReSendSeqFromBuffer(unsigned short seq, char *da
         memcpy(dataLen, &mUpStreamResendBuffer[taget][sizeof(seq)], sizeof(*dataLen));
         memcpy(data, &mUpStreamResendBuffer[taget][sizeof(seq) + sizeof(*dataLen)], *dataLen);
 
-    } else {
+    }
+    else {
         if (low_bound <= seq && mUpStreamNewSequence >= seq) {
             int taget = seq - low_bound + mUpStreamResendBufferIndex;
             if (taget >= kMaxUpStreamResendElemtCount) {

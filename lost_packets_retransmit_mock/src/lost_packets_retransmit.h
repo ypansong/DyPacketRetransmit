@@ -11,7 +11,7 @@
 #include <stdio.h>
 #endif
 
-const unsigned char kRetransmitVersion = 0;
+const unsigned char kRetransmitVersion = 1;
 
 const unsigned char kMaxRetransmitCount = 10;
 const unsigned short kMaxRetransmitBufferLength = 50;
@@ -124,7 +124,6 @@ private:
 
 private:
     volatile char mRetransmitLock;
-    volatile char mResendSeqLock;
     bool mbIsEnable;
     char mContinuousFlag;
     char mFecFlag;
@@ -138,10 +137,6 @@ private:
     float mAvgArriveModel;
     bool mbIsDisorder;
     unsigned short mRetransmitSeq;
-    unsigned char mUpStreamResendBuffer[kMaxUpStreamResendElemtCount][kMaxaPacketLength + sizeof(short) + sizeof (int)];
-    unsigned short mUpStreamResendBufferIndex;
-    unsigned short mUpStreamNewSequence;
-    bool mbGetResendSeqFlag;
 
 public:
 
@@ -164,11 +159,9 @@ public:
     // requested_sequences -- output.
     int GetRetransmitSequences(int * requested_length, unsigned short * requested_sequences);
 
-    // put seq in send seq buffer
-    int PutSendSeqIntoBuffer(unsigned short seq, char *data, int dataLen);
+    int SetCurrentPlaySeq(unsigned short seq);
 
-    // get seq out of send seq buffer
-    int GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen);
+    
 
     unsigned short GetProtocolSeq();
 
@@ -205,5 +198,34 @@ private:
     void PrintLog(const char* format, ...);
 
 };
+
+class UpstreamPacketsRetransmitter
+{
+public:
+    UpstreamPacketsRetransmitter();
+    ~UpstreamPacketsRetransmitter();
+
+    // enanle upstream packet retransmitter or not
+    void SetEnable(bool isEnable);
+
+    // put seq in send seq buffer
+    int PutSendSeqIntoBuffer(unsigned short seq, char *data, int dataLen);
+
+    // get seq out of send seq buffer
+    int GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen);
+
+private:
+    volatile bool mbIsEnable;
+
+    volatile char mResendSeqLock;
+    unsigned short mUpStreamNewSequence;
+    unsigned char mUpStreamResendBuffer[kMaxUpStreamResendElemtCount][kMaxaPacketLength + sizeof(short) + sizeof(int)];
+    unsigned short mUpStreamResendBufferIndex;
+
+    bool mbGetResendSeqFlag;
+    
+};
+
+
 
 #endif // !LOST_PACKETS_RESTRANSMIT_H_
