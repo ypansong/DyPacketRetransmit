@@ -13,7 +13,7 @@
 
 const unsigned char kRetransmitVersion = 1;
 
-const unsigned char kMaxRetransmitCount = 10;
+const unsigned char kMaxRetransmitCount = 10; // svn is 15
 const unsigned short kMaxRetransmitBufferLength = 50;
 const unsigned short kReverGap = 65535 / 2;
 
@@ -21,6 +21,8 @@ const unsigned short kMaxSendSeqBufferLength = 50;
 
 const unsigned short kMaxUpStreamResendElemtCount = 50;
 const unsigned short kMaxaPacketLength = 512;
+
+const unsigned long kMaxTimeWithoutPack = 15000;
 
 struct RetransmitElement {
     unsigned short seq;
@@ -111,26 +113,29 @@ private:
     volatile char* mLock;
 };
 
+// downstream retransmit
 class LostPacketsRetransmiter {
 private:
     std::set<RetransmitElement> mRetransmitBuffer;
     std::set<SendSeqElement> mSendSeqBuffer;
-    int mRequestElementNum;
-    int mRecvCantRetransmitNum;
+    volatile int mRequestElementNum;
+    volatile int mRecvCantRetransmitNum;
     int mDisorderNum;
     int mExistedSequence;
     int mDeadElement;
-    int mRecvRetransmitNum;
+    volatile int mRecvRetransmitNum;
 
 private:
     volatile char mRetransmitLock;
-    bool mbIsEnable;
+    volatile bool mbIsEnable;
     char mContinuousFlag;
     char mFecFlag;
     unsigned long mRecvPacketCnt;
     int mRecvValidPackCnt;
     unsigned short mLastSequence;
     unsigned long mLastTimestamp;
+    unsigned long mLastNormalTimestamp;
+    unsigned short mLastNormalSequence;
     unsigned long mStartTimestamp;
     int mRecvOrderCnt;
     float mTotalArriveModel;
@@ -159,9 +164,9 @@ public:
     // requested_sequences -- output.
     int GetRetransmitSequences(int * requested_length, unsigned short * requested_sequences);
 
-    int SetCurrentPlaySeq(unsigned short seq);
+    void SetCurrentPlaySeq(unsigned short seq);
 
-    
+    int GetStatistics(int &request_retransmit_num, int &recv_retransmit_num, int &recv_cant_retransmit_num);
 
     unsigned short GetProtocolSeq();
 
@@ -193,12 +198,15 @@ private:
 
     int GetSequencesOutFromBuffer(unsigned short seq);
 
+    int ResetParameters();
+
     int ResetBuffer();
 
     void PrintLog(const char* format, ...);
 
 };
 
+// upstream retransmit
 class UpstreamPacketsRetransmitter
 {
 public:
@@ -214,6 +222,8 @@ public:
     // get seq out of send seq buffer
     int GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen);
 
+    int GetReSendNum();
+
 private:
     volatile bool mbIsEnable;
 
@@ -221,11 +231,9 @@ private:
     unsigned short mUpStreamNewSequence;
     unsigned char mUpStreamResendBuffer[kMaxUpStreamResendElemtCount][kMaxaPacketLength + sizeof(short) + sizeof(int)];
     unsigned short mUpStreamResendBufferIndex;
+    volatile int mRecvResendNum;
 
     bool mbGetResendSeqFlag;
-    
 };
-
-
 
 #endif // !LOST_PACKETS_RESTRANSMIT_H_

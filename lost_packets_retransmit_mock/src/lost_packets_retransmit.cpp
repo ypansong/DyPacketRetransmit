@@ -4,28 +4,12 @@ LostPacketsRetransmiter::LostPacketsRetransmiter()
 {
     mRetransmitLock = 0;
 
-    mbIsEnable = true; // TODO £º reset false here
-    
-    mContinuousFlag = -1;
-    mFecFlag = -1;
-    mRecvPacketCnt = 0;
-    mRecvValidPackCnt = 0;
-    mLastSequence = 0;
-    mLastTimestamp = 0;
-    mStartTimestamp = 0;
-    mRecvOrderCnt = 0;
-    mTotalArriveModel = 0;
-    mAvgArriveModel = 0;
-    
-    mRequestElementNum = 0;
-    mRecvCantRetransmitNum = 0;
-    mDisorderNum = 0;
-    mExistedSequence = 0;
-    mDeadElement = 0;
-    mRecvRetransmitNum = 0;
+    mbIsEnable = true; // TODO : reset false here
     
     mbIsDisorder = false;
     mRetransmitSeq = 1;
+
+    ResetParameters();
 }
 
 LostPacketsRetransmiter::~LostPacketsRetransmiter()
@@ -40,6 +24,31 @@ LostPacketsRetransmiter::~LostPacketsRetransmiter()
     mRetransmitBuffer.clear();
 }
 
+int LostPacketsRetransmiter::ResetParameters()
+{
+    mContinuousFlag = -1;
+    mFecFlag = -1;
+    mRecvPacketCnt = 0;
+    mRecvValidPackCnt = 0;
+    mLastSequence = 0;
+    mLastTimestamp = 0;
+    mLastNormalTimestamp = 0;
+    mLastNormalSequence = 0;
+    mStartTimestamp = 0;
+    mRecvOrderCnt = 0;
+    mTotalArriveModel = 0;
+    mAvgArriveModel = 0;
+
+    mRequestElementNum = 0;
+    mRecvCantRetransmitNum = 0;
+    mDisorderNum = 0;
+    mExistedSequence = 0;
+    mDeadElement = 0;
+    mRecvRetransmitNum = 0;
+
+    return 0;
+}
+
 void LostPacketsRetransmiter::SetEnable(bool isEnable)
 {
     mbIsEnable = isEnable;
@@ -47,12 +56,12 @@ void LostPacketsRetransmiter::SetEnable(bool isEnable)
 
 int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned long now_time_stamp, bool is_recv_retransmit)
 {
+    RetransmitLock retransmitLock(&mRetransmitLock);
+
     if (!mbIsEnable)
     {
         return -1;
     }
-
-    RetransmitLock retransmitLock(&mRetransmitLock);
 
     bool isNeedUpdate = true;
 
@@ -85,18 +94,20 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
         {
             CalculatePacketsArriveModel(now_time_stamp);
             mRecvValidPackCnt++;
+            mLastNormalTimestamp = now_time_stamp;
+            mLastNormalSequence = now_sequence;
         }
         else if ((now_sequence - mLastSequence) == 0)
         {
             // repeat
             isNeedUpdate = false;
         }
-        else if ((now_sequence - mLastSequence) <= (-kReverGap))
+        else if ((now_sequence - mLastSequence) <= (-250))
         {
             // turnover, reset the buffer
             ResetBuffer();
         }
-        else
+        else if ((now_sequence - mLastSequence) < 0)
         {
             // disorder
             isNeedUpdate = false;
@@ -123,12 +134,12 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
 
 int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
 {
+    RetransmitLock retransmitLock(&mRetransmitLock);
+
     if (!mbIsEnable)
     {
         return -1;
     }
-
-    RetransmitLock retransmitLock(&mRetransmitLock);
 
     if (mLastTimestamp == 0)
     {
@@ -147,13 +158,27 @@ int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
         {
             if (mAvgArriveModel > 0)
             {
+                unsigned short i = 0;
                 float float_seq_interval = (now_time_stamp - mLastTimestamp) / mAvgArriveModel;
                 float seq_interval = floor(float_seq_interval);
-                for (unsigned short i = (mLastSequence + 1); i < (mLastSequence + seq_interval);i++)
+                float float_seq_interval_2 = (now_time_stamp - mLastNormalTimestamp) / mAvgArriveModel;
+                float seq_interval2 = floor(float_seq_interval_2);
+                for (i = (mLastSequence + 1); i < (mLastSequence + seq_interval);i++)
                 {
                     PutSequenceIntoBuffer(i);
                 }
+                if ((mLastSequence + seq_interval) - (mLastNormalSequence + seq_interval2) <= 20)
+                {
+                    for (i = (mLastSequence + seq_interval);i < (mLastNormalSequence + seq_interval2);i++)
+                    {
+                        PutSequenceIntoBuffer(i);
+                    }
+                }
             }
+        }
+        if (elapse_time >= kMaxTimeWithoutPack)
+        {
+            ResetBuffer();
         }
     }
     return 0;
@@ -161,13 +186,13 @@ int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
 
 int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsigned short * requested_sequences)
 {
+    RetransmitLock retransmitLock(&mRetransmitLock);
+
     if (!mbIsEnable)
     {
         *requested_length = 0;
         return -1;
     }
-
-    RetransmitLock retransmitLock(&mRetransmitLock);
 
     if (NULL == requested_sequences) {
         return -2;
@@ -192,24 +217,25 @@ int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsi
 
     *requested_length = output_count;
     mRequestElementNum += output_count;
+
     return 0;
 }
 
 int LostPacketsRetransmiter::ResetBuffer()
 {
-    mAvgArriveModel = 0;
+    ResetParameters();
     mRetransmitBuffer.clear();
     return 0;
 }
 
 int LostPacketsRetransmiter::RemoveSequenceFromBuffer(unsigned short target_seq)
 {
+    RetransmitLock retransmitLock(&mRetransmitLock);
+
     if (!mbIsEnable)
     {
         return -1;
     }
-
-    RetransmitLock retransmitLock(&mRetransmitLock);
 
     mRecvCantRetransmitNum++;
     return GetSequencesOutFromBuffer(target_seq);
@@ -280,19 +306,14 @@ int LostPacketsRetransmiter::GetSequencesOutFromBuffer(unsigned short seq)
     return 1;
 }
 
-unsigned short LostPacketsRetransmiter::GetProtocolSeq()
+void LostPacketsRetransmiter::SetCurrentPlaySeq(unsigned short seq)
 {
-    return mRetransmitSeq++;
-}
+    RetransmitLock retransmitLock(&mRetransmitLock);
 
-int LostPacketsRetransmiter::SetCurrentPlaySeq(unsigned short seq)
-{
     if (!mbIsEnable)
     {
-        return -1;
+        return;
     }
-
-    RetransmitLock retransmitLock(&mRetransmitLock);
 
     RetransmitElement temp_re;
     std::set<RetransmitElement>::iterator iter;
@@ -311,7 +332,11 @@ int LostPacketsRetransmiter::SetCurrentPlaySeq(unsigned short seq)
             }
         }
     }
-    return 0;
+}
+
+unsigned short LostPacketsRetransmiter::GetProtocolSeq()
+{
+    return mRetransmitSeq++;
 }
 
 void LostPacketsRetransmiter::PrintLog(const char* format, ...)
@@ -337,6 +362,15 @@ void LostPacketsRetransmiter::PrintLog(const char* format, ...)
     va_end(arg_ptr);
 }
 
+int LostPacketsRetransmiter::GetStatistics(int &request_retransmit_num, int &recv_retransmit_num, int &recv_cant_retransmit_num)
+{
+    request_retransmit_num = mRequestElementNum; 
+    recv_retransmit_num = mRecvRetransmitNum;
+    recv_cant_retransmit_num = mRecvCantRetransmitNum;
+
+    return 0;
+}
+
 UpstreamPacketsRetransmitter::UpstreamPacketsRetransmitter()
 {
     mResendSeqLock = 0;
@@ -344,6 +378,7 @@ UpstreamPacketsRetransmitter::UpstreamPacketsRetransmitter()
     mUpStreamNewSequence = 0;
     mUpStreamResendBufferIndex = 0;
     memset(mUpStreamResendBuffer, 0, sizeof(mUpStreamResendBuffer));
+    mRecvResendNum = 0;
 
     mbGetResendSeqFlag = 0;
 }
@@ -359,6 +394,8 @@ void UpstreamPacketsRetransmitter::SetEnable(bool isEnable)
 
 int UpstreamPacketsRetransmitter::PutSendSeqIntoBuffer(unsigned short seq, char *data, int dataLen)
 {
+    RetransmitLock resendLock(&mResendSeqLock);
+
     if (!mbIsEnable)
     {
         return -1;
@@ -367,8 +404,6 @@ int UpstreamPacketsRetransmitter::PutSendSeqIntoBuffer(unsigned short seq, char 
     if (dataLen > kMaxaPacketLength) {
         return -2;
     }
-
-    RetransmitLock resendLock(&mResendSeqLock);
 
     mUpStreamNewSequence = seq;
     memcpy(mUpStreamResendBuffer[mUpStreamResendBufferIndex], &seq, sizeof(seq));
@@ -384,7 +419,9 @@ int UpstreamPacketsRetransmitter::PutSendSeqIntoBuffer(unsigned short seq, char 
 }
 
 int UpstreamPacketsRetransmitter::GetReSendSeqFromBuffer(unsigned short seq, char *data, int *dataLen)
-{
+{ 
+    RetransmitLock resendLock(&mResendSeqLock);
+
     if (!mbIsEnable)
     {
         return -1;
@@ -403,7 +440,6 @@ int UpstreamPacketsRetransmitter::GetReSendSeqFromBuffer(unsigned short seq, cha
         return -3;
     }
 
-    RetransmitLock resendLock(&mResendSeqLock);
     if (!mbGetResendSeqFlag)
     {
         return -4;
@@ -412,7 +448,7 @@ int UpstreamPacketsRetransmitter::GetReSendSeqFromBuffer(unsigned short seq, cha
     int low_bound = mUpStreamNewSequence - kMaxUpStreamResendElemtCount + 1;
     if (low_bound < kNonSequenceHigh) {
         low_bound = low_bound + 65536 - (kNonSequenceHigh - kNonSequenceLow);
-        if (seq < low_bound && seq >mUpStreamNewSequence) {
+        if (seq < low_bound || seq >mUpStreamNewSequence) {
             return 0;
         }
         int taget = seq - low_bound;
@@ -425,9 +461,8 @@ int UpstreamPacketsRetransmitter::GetReSendSeqFromBuffer(unsigned short seq, cha
         }
         memcpy(dataLen, &mUpStreamResendBuffer[taget][sizeof(seq)], sizeof(*dataLen));
         memcpy(data, &mUpStreamResendBuffer[taget][sizeof(seq) + sizeof(*dataLen)], *dataLen);
-
-    }
-    else {
+        mRecvResendNum++;
+    } else {
         if (low_bound <= seq && mUpStreamNewSequence >= seq) {
             int taget = seq - low_bound + mUpStreamResendBufferIndex;
             if (taget >= kMaxUpStreamResendElemtCount) {
@@ -435,8 +470,14 @@ int UpstreamPacketsRetransmitter::GetReSendSeqFromBuffer(unsigned short seq, cha
             }
             memcpy(dataLen, &mUpStreamResendBuffer[taget][sizeof(seq)], sizeof(*dataLen));
             memcpy(data, &mUpStreamResendBuffer[taget][sizeof(seq) + sizeof(*dataLen)], *dataLen);
+            mRecvResendNum++;
         }
     }
 
     return 0;
+}
+
+int UpstreamPacketsRetransmitter::GetReSendNum()
+{
+    return mRecvResendNum;
 }
