@@ -1,11 +1,19 @@
 #include"lost_packets_retransmit.h"
 
-LostPacketsRetransmiter::LostPacketsRetransmiter()
+LostPacketsRetransmiter::LostPacketsRetransmiter() :
+  mmsLastSequence(2, 65535, 2),
+  mmsLastNormalSequence(2, 65535, 2),
+  mmsUshort(2, 65535, 2),
+  mmsIndexi(2, 65535, 2),
+  mStartedFlag(0)
 {
     mRetransmitLock = 0;
 
     mbIsEnable = true; // TODO : reset false here
     
+    mRecvPacketCnt = 0;
+    mRecvValidPackCnt = 0;
+
     mbIsDisorder = false;
     mRetransmitSeq = 1;
 
@@ -28,12 +36,9 @@ int LostPacketsRetransmiter::ResetParameters()
 {
     mContinuousFlag = -1;
     mFecFlag = -1;
-    mRecvPacketCnt = 0;
-    mRecvValidPackCnt = 0;
-    mLastSequence = 0;
+    
     mLastTimestamp = 0;
     mLastNormalTimestamp = 0;
-    mLastNormalSequence = 0;
     mStartTimestamp = 0;
     mRecvOrderCnt = 0;
     mTotalArriveModel = 0;
@@ -67,58 +72,64 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
 
     mbIsDisorder = false;
     mRecvPacketCnt++;
-
-    if (mLastSequence == 0)
+    mmsUshort = now_sequence;
+    int distance = -(mmsLastSequence - mmsUshort);
+    if (mStartedFlag == 0)
     {
-        mLastSequence = now_sequence;
+      mmsLastSequence = now_sequence;
+      mStartedFlag = 1;
     }
     else
     {
-        if ((now_sequence - mLastSequence) > kReverGap)
+      if (distance > kTooLarge || distance < kTooSmall)// Need cup down kReverGap
+      {
+        // jump to far, do nothing
+        ResetBuffer();
+      }
+      else if (distance >= 2)
+      {
+        // lost packet(s)
+        if (mRecvPacketCnt > 100)
         {
-            // jump to far, do nothing
-            isNeedUpdate = false;
+          for (mmsIndexi = mmsLastSequence + 1; mmsIndexi < mmsUshort; mmsIndexi++)
+          {
+            PutSequenceIntoBuffer(mmsIndexi.GetIndex());
+          }
         }
-        else if ((now_sequence - mLastSequence) >= 2)
+
+      }
+      else if ((distance == 1))
+      {
+        if (!is_recv_retransmit)
         {
-            // lost packet(s)
-            for (unsigned short i = mLastSequence + 1; i < now_sequence; i++)
-            {
-                if (mRecvPacketCnt > 100)
-                {
-                    PutSequenceIntoBuffer(i);
-                }
-            }
-        }
-        else if (((now_sequence - mLastSequence) == 1) && !is_recv_retransmit)
+        CalculatePacketsArriveModel(now_time_stamp);
+        mRecvValidPackCnt++;
+        mLastNormalTimestamp = now_time_stamp;
+        mmsLastNormalSequence = now_sequence;
+        } 
+        else
         {
-            CalculatePacketsArriveModel(now_time_stamp);
-            mRecvValidPackCnt++;
-            mLastNormalTimestamp = now_time_stamp;
-            mLastNormalSequence = now_sequence;
+
         }
-        else if ((now_sequence - mLastSequence) == 0)
-        {
-            // repeat
-            isNeedUpdate = false;
-        }
-        else if ((now_sequence - mLastSequence) <= (-250))
-        {
-            // turnover, reset the buffer
-            ResetBuffer();
-        }
-        else if ((now_sequence - mLastSequence) < 0)
-        {
-            // disorder
-            isNeedUpdate = false;
-            mbIsDisorder = true;
-        }
+      }
+      else if (distance == 0)
+      {
+        // repeat
+        isNeedUpdate = false;
+      }
+      else 
+      {
+        // disorder
+        isNeedUpdate = false;
+        mbIsDisorder = true;
+      }
     }
 
     if (isNeedUpdate)
     {
-        mLastSequence = now_sequence;
+      mmsLastSequence = now_sequence;
     }
+    mLastTimestamp = now_time_stamp;
 
     if (is_recv_retransmit)
     {
@@ -126,8 +137,6 @@ int LostPacketsRetransmiter::DetectGap(unsigned short now_sequence, unsigned lon
     }
 
     GetSequencesOutFromBuffer(now_sequence);
-
-    mLastTimestamp = now_time_stamp;
 
     return 0;
 }
@@ -154,7 +163,7 @@ int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
     if (mRecvValidPackCnt >= 100)
     {
         unsigned long elapse_time = now_time_stamp - mLastTimestamp;
-        if (elapse_time >= 200 && elapse_time <= 500) // Test case will be fault because this
+        // if (elapse_time >= 200 && elapse_time <= 500) // Test case will be fault because this
         {
             if (mAvgArriveModel > 0)
             {
@@ -163,16 +172,21 @@ int LostPacketsRetransmiter::DetectTimeOut(unsigned long now_time_stamp)
                 float seq_interval = floor(float_seq_interval);
                 float float_seq_interval_2 = (now_time_stamp - mLastNormalTimestamp) / mAvgArriveModel;
                 float seq_interval2 = floor(float_seq_interval_2);
-                for (i = (mLastSequence + 1); i < (mLastSequence + seq_interval);i++)
+
+                mmsUshort = mmsLastSequence + seq_interval;
+                for (mmsIndexi = mmsLastSequence + 1; mmsIndexi < mmsUshort; mmsIndexi++)
                 {
-                    PutSequenceIntoBuffer(i);
+                    PutSequenceIntoBuffer(mmsIndexi.GetIndex());
                 }
-                if ((mLastSequence + seq_interval) - (mLastNormalSequence + seq_interval2) <= 20)
+
+                mmsUshort = mmsUshort - (mmsLastNormalSequence + seq_interval2);
+                if (mmsUshort <= 20)
                 {
-                    for (i = (mLastSequence + seq_interval);i < (mLastNormalSequence + seq_interval2);i++)
-                    {
-                        PutSequenceIntoBuffer(i);
-                    }
+                  mmsUshort = (mmsLastNormalSequence + seq_interval2);
+                  for (mmsIndexi = mmsLastSequence + seq_interval; mmsIndexi < mmsUshort; mmsIndexi++)
+                  {
+                    PutSequenceIntoBuffer(mmsIndexi.GetIndex());
+                  }
                 }
             }
         }

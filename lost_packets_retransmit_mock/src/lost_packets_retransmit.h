@@ -10,12 +10,14 @@
 #include <math.h>
 #include <stdio.h>
 #endif
+#include "media_sequence.h"
 
 const unsigned char kRetransmitVersion = 1;
 
 const unsigned char kMaxRetransmitCount = 10; // svn is 15
 const unsigned short kMaxRetransmitBufferLength = 50;
-const unsigned short kReverGap = 65535 / 2;
+const short kTooLarge = 50 * 150; // 15s; TODO(Chaos): Need to fix test.
+const short kTooSmall = -50 * 5; // 5s;
 
 const unsigned short kMaxSendSeqBufferLength = 50;
 
@@ -132,16 +134,22 @@ private:
     char mFecFlag;
     unsigned long mRecvPacketCnt;
     int mRecvValidPackCnt;
-    unsigned short mLastSequence;
+
+    MediaSequence mmsLastSequence;
+    MediaSequence mmsLastNormalSequence;
+    MediaSequence mmsUshort;
+    MediaSequence mmsIndexi;
+
     unsigned long mLastTimestamp;
     unsigned long mLastNormalTimestamp;
-    unsigned short mLastNormalSequence;
     unsigned long mStartTimestamp;
     int mRecvOrderCnt;
     float mTotalArriveModel;
     float mAvgArriveModel;
     bool mbIsDisorder;
     unsigned short mRetransmitSeq;
+
+    char mStartedFlag;
 
 public:
 

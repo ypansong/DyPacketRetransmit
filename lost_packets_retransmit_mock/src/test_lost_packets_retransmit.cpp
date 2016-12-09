@@ -844,9 +844,27 @@ void main()
       for (i = 0; i < sizeof(test_sample_19) / sizeof(test_sample_19[0]); i++) {
         TEST_NO_ERROR(lpr.DetectGap(test_sample_19[i].sequence, test_sample_19[i].arrival_time_in_ms));
         TEST_NO_ERROR(lpr.GetRetransmitSequences(&out_length, out_put_seq));
-        int result_temp[] = { 0 };
-        test_result += BufferEqual(out_length, out_put_seq, result_temp);
+
+        if (110 > i) {
+          int result_temp[] = { 0 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (110 == i) {
+          int result_temp[] = { 5, 65531, 65532, 65533, 65534, 65535 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (i == 111 || i == 112 || i == 113) {
+          int result_temp[] = { 4, 65531, 65532, 65533, 65535 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (i >= 114 && i <= 118) {
+          int result_temp[] = { 3, 65531, 65532, 65533 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else {
+          int result_temp[] = { 0 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        }
       }
+
+
+
       TEST_RESULT(test_sample_19, test_result);
     }
 
@@ -917,13 +935,25 @@ void main()
         } else if (110 == i) {
           int result_temp[] = { 3, 65531, 65532, 65533 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (i == 111 || i == 112) {
-            int result_temp[] = { 0 };
+        } else if (i == 111) {
+            int result_temp[] = { 4, 65531, 65532, 65533, 65535 };
             test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (113 == i || i == 114) {
-          int result_temp[] = { 1, 3};
+        }else if(i == 112){
+          int result_temp[] = { 3, 65532, 65533, 65535 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
-        } else if (i >= 115) {
+        } else if (113 == i || i == 114) {
+          int result_temp[] = { 4, 3, 65532, 65533, 65535 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (i == 115) {
+          int result_temp[] = { 3, 65532, 65533, 65535 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if (i == 116 || i == 117 ||i == 118) {
+          int result_temp[] = { 2, 65533, 65535 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else if(i == 119) {
+          int result_temp[] = { 1, 65535 };
+          test_result += BufferEqual(out_length, out_put_seq, result_temp);
+        } else {
           int result_temp[] = { 0 };
           test_result += BufferEqual(out_length, out_put_seq, result_temp);
         }

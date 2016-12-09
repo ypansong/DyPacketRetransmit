@@ -32,5 +32,8 @@
     <ClInclude Include="..\src\lost_packets_retransmit.h">
       <Filter>src\LostPacketRetransmit</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\media_sequence.h">
+      <Filter>src\LostPacketRetransmit</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
