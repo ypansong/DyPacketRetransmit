@@ -4,16 +4,10 @@ LostPacketsRetransmiter::LostPacketsRetransmiter() :
   mmsLastSequence(2, 65535, 2),
   mmsLastNormalSequence(2, 65535, 2),
   mmsUshort(2, 65535, 2),
-  mmsIndexi(2, 65535, 2),
-  mStartedFlag(0)
+  mmsIndexi(2, 65535, 2)
 {
     mRetransmitLock = 0;
-
     mbIsEnable = true; // TODO : reset false here
-    
-    mRecvPacketCnt = 0;
-    mRecvValidPackCnt = 0;
-
     mbIsDisorder = false;
     mRetransmitSeq = 1;
 
@@ -34,22 +28,26 @@ LostPacketsRetransmiter::~LostPacketsRetransmiter()
 
 int LostPacketsRetransmiter::ResetParameters()
 {
+
+    mRecvPacketCnt = 0;
+    mRecvValidPackCnt = 0;
     mContinuousFlag = -1;
     mFecFlag = -1;
-    
     mLastTimestamp = 0;
     mLastNormalTimestamp = 0;
+    mmsLastSequence = 0;
+    mmsLastNormalSequence = 0;
     mStartTimestamp = 0;
     mRecvOrderCnt = 0;
     mTotalArriveModel = 0;
     mAvgArriveModel = 0;
-
     mRequestElementNum = 0;
     mRecvCantRetransmitNum = 0;
     mDisorderNum = 0;
     mExistedSequence = 0;
     mDeadElement = 0;
     mRecvRetransmitNum = 0;
+    mStartedFlag = 0;
 
     return 0;
 }
