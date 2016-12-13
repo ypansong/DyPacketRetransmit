@@ -14,7 +14,7 @@
 
 const unsigned char kRetransmitVersion = 1;
 
-const unsigned char kMaxRetransmitCount = 10; // svn is 15
+const char kMaxRetransmitCount = 10; // svn is 15
 const unsigned short kMaxRetransmitBufferLength = 50;
 const short kTooLarge = 50 * 150; // 15s; TODO(Chaos): Need to fix test.
 const short kTooSmall = -50 * 5; // 5s;
@@ -25,6 +25,9 @@ const unsigned short kMaxUpStreamResendElemtCount = 50;
 const unsigned short kMaxaPacketLength = 512;
 
 const unsigned long kMaxTimeWithoutPack = 15000;
+
+const char kSlowerTransimitArray[4] = { kMaxRetransmitCount - 11, kMaxRetransmitCount - 7,
+                                        kMaxRetransmitCount - 3, kMaxRetransmitCount - 1 };
 
 struct RetransmitElement {
     unsigned short seq;
@@ -171,6 +174,8 @@ public:
     // requested_length -- output.
     // requested_sequences -- output.
     int GetRetransmitSequences(int * requested_length, unsigned short * requested_sequences);
+
+    int GetRetransmitSequencesSlower(int * requested_length, unsigned short * requested_sequences);
 
     void SetCurrentPlaySeq(unsigned short seq);
 

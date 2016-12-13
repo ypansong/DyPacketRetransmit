@@ -233,6 +233,67 @@ int LostPacketsRetransmiter::GetRetransmitSequences(int * requested_length, unsi
     return 0;
 }
 
+int LostPacketsRetransmiter::GetRetransmitSequencesSlower(int * requested_length, unsigned short * requested_sequences)
+{
+  RetransmitLock retransmitLock(&mRetransmitLock);
+
+  if (!mbIsEnable)
+  {
+    *requested_length = 0;
+    return -1;
+  }
+
+  if (NULL == requested_sequences) {
+    return -2;
+  }
+  std::set<RetransmitElement>::iterator iter;
+  unsigned char * temp_lives;
+  int output_count = 0;
+
+  for (iter = mRetransmitBuffer.begin(); iter != mRetransmitBuffer.end(); ) {
+    // max = 15, lives = 14, 12, 8, 4, 1;
+    // max = 19, lives = 18, 16, 12, 8, 1;
+    // max = 20, lives = 19, 17, 13, 9, 1;
+    // max = 21, lives = 20, 18, 14, 10, 6, 1; 
+    // max = 32, lives = 31, 29, 25, 21, 18, 12, 6, 1; 
+    char flag = 0;
+    temp_lives = (unsigned char*)(&(iter->lives));
+    *temp_lives = *temp_lives - 1;
+    if ((kSlowerTransimitArray[3] > 0) && (*temp_lives == kSlowerTransimitArray[3])) {
+      flag = 1;
+    } else if ((kSlowerTransimitArray[1] > 0) && (*temp_lives == kSlowerTransimitArray[1])) {
+      flag = 1;
+    } else if ((kSlowerTransimitArray[2] > 0) && (*temp_lives == kSlowerTransimitArray[2])) {
+      flag = 1;
+    } else if (*temp_lives == 1) {
+      flag = 1;
+    } else if ((kSlowerTransimitArray[0] > 0)) {
+      if (*temp_lives == kSlowerTransimitArray[0]) {
+        flag = 1;
+      } else if ((*temp_lives % 6 == 0) && (*temp_lives < kSlowerTransimitArray[0])) {
+        flag = 1;
+      }
+    }
+
+    if (1 == flag) {
+      output_count++;
+      requested_sequences[output_count - 1] = iter->seq;
+    }
+    if (1 >= (*temp_lives)) {
+      iter = mRetransmitBuffer.erase(iter);
+      mDeadElement++;
+    } else {
+      iter++;
+    }
+  }
+
+  *requested_length = output_count;
+  mRequestElementNum += output_count;
+
+  return 0;
+}
+
+
 int LostPacketsRetransmiter::ResetBuffer()
 {
     ResetParameters();
